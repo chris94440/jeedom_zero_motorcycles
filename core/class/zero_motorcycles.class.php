@@ -299,13 +299,10 @@ class zero_motorcycles extends eqLogic {
     public function postSave() {
     }
   
-    public function preUpdate() {
-		log::add(__CLASS__, 'debug',  "appel preUpdate");
-   		$this->checkCredentials();            
+    public function preUpdate() {       
     }
 
-    public function postUpdate() {
-      	//$this->createCmd();
+    public function postUpdate() {      	
     }
 
     public function preRemove() {
