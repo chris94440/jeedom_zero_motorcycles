@@ -136,7 +136,7 @@ class zero_motorcycles extends eqLogic {
     }
   
   	private function commonCreateCmd($eqLogic,$name,$value) {
-      	log::add(__CLASS__, 'debug', '			- ' . __FUNCTION__ . ' name : ' . $name . ' -> ' . $value);
+      	log::add(__CLASS__, 'debug', '				- ' . __FUNCTION__ . ' name : ' . $name . ' -> ' . $value);
     	$zero_motorcyclesCmd = $eqLogic->getCmd(null, $name.'_'.$eqLogic->getLogicalId());
 		if (! is_object($zero_motorcyclesCmd)) {
 			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
