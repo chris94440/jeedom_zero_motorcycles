@@ -64,7 +64,7 @@ class zero_motorcycles extends eqLogic {
 		}
 	}
 
-	public static function synchronize() {
+	public function synchronize() {
 		//$this->writeSeparateLine();
 		log::add(__CLASS__, 'debug', 'Start' . __FUNCTION__ . ' equipement Zero Motorcycles');
 
