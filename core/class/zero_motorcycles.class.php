@@ -37,6 +37,12 @@ class zero_motorcycles extends eqLogic {
 	const ICON_PATH='/var/www/html/plugins/zero_motorcycles/data/img/icons/';
 	const ACCESS_ICON_PATH='/plugins/zero_motorcycles/data/img/icons/';
 
+	const BASE_URL='https://mongol.brono.com/mongol/api.php?commandname=';
+	/*
+	https://mongol.brono.com/mongol/api.php?commandname=get_units&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$
+	https://mongol.brono.com/mongol/api.php?commandname=get_last_transmit&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$&unitnumber=1073108
+	*/
+
   	private function fmt_date($timeStamp) {
 		setlocale(LC_TIME, 'fr_FR.utf8','fra');
 		return(ucwords(strftime("%a %d %b %T",$timeStamp)));
@@ -50,13 +56,10 @@ class zero_motorcycles extends eqLogic {
 			try {
                 $c = new Cron\CronExpression(checkAndFixCron($autorefresh), new Cron\FieldFactory);
                 if ($c->isDue()) {
-                    log::add('zero_motorcycles', 'debug', 'Exécution du cron Ima Protect');
+                    log::add('zero_motorcycles', 'debug', 'Exécution du cron Zero Motorcycles');
                   	
-		            foreach (eqLogic::byType('zero_motorcycles', true) as $zero_motorcycles) {
-                      	
-                      	$bEventsRefreshed=(bool)FALSE;
-						$newValue=$zero_motorcycles->GetAlarmState();                    	
-                        $zero_motorcycles->writeSeparateLine();
+		            foreach (eqLogic::byType('zero_motorcycles', true) as $zero_motorcycles) {                      	
+						log::add('zero_motorcycles', 'debug', 'ToDo cron execution');
                    }
                    
 				}
@@ -65,112 +68,8 @@ class zero_motorcycles extends eqLogic {
 			}
 		}
 	}
-  
-  	private function initCache() {
-      	//cache::set('zero_motorcycles::alarmStatus::'.$this->getId(),1637308809, 0);
-      	if (((cache::byKey('zero_motorcycles::alarmStatus::'.$this->getId()))->getValue(microtime(true)) === '') || ((cache::byKey('zero_motorcycles::alarmStatus::'.$this->getId()))->getValue(microtime(true)) > time())) {
-          	cache::set('zero_motorcycles::alarmStatus::'.$this->getId(),time(), 0);
-        }
-      
-      	if (((cache::byKey('zero_motorcycles::alarmIntrusion::'.$this->getId()))->getValue(microtime(true)) === '') || ((cache::byKey('zero_motorcycles::alarmIntrusion::'.$this->getId()))->getValue(microtime(true)) > time())) {
-          	cache::set('zero_motorcycles::alarmIntrusion::'.$this->getId(),time(), 0);
-        }
-      
-      	if (((cache::byKey('zero_motorcycles::alarmOpenedDoor::'.$this->getId()))->getValue(microtime(true)) === '') || ((cache::byKey('zero_motorcycles::alarmOpenedDoor::'.$this->getId()))->getValue(microtime(true)) > time())) {
-          	cache::set('zero_motorcycles::alarmOpenedDoor::'.$this->getId(),time(), 0);
-        }
-    }
-  
-  	public function manageNotifications($bEventsRefreshed,$notifCmd) {
-            
-      try {
-        $this->initCache();
-        
-        if ($bEventsRefreshed == FALSE) {
-          	$this->getCmd(null, 'refreshAlarmEvents')->execCmd();
-        } else {
-			log::add('zero_motorcycles', 'debug',  "  ". __FUNCTION__ ." Start");
 
-			$eventResponse=$this->getCmd(null, 'alarmeEventsBrute')->execCmd();
-			if ($this->getConfiguration('cfgAlertChangeStatus') === '1') {
-              		$this->checkActivity('activ','alarmStatus',$eventResponse,$notifCmd);
-			}
-
-			if ($this->getConfiguration('cfgAlertIntrusion') === '1') {
-              	  $this->checkActivity('intrusion','alarmIntrusion',$eventResponse,$notifCmd);
-			}
-
-			if ($this->getConfiguration('cfgAlertOpenedDoor') === '1') {
-              		$this->checkActivity('ouverture','alarmOpenedDoor',$eventResponse,$notifCmd);
-			}
-			log::add('zero_motorcycles', 'debug',  "  ". __FUNCTION__ ." End");
-		}
-
-      } catch (Exception $e) {
-          $this->manageErrorAPI("GetAlarmState",$e->getMessage());
-      }
-    }
-  
-  	private function checkActivity($activity,$cacheName,$eventResponse,$notifCmd) {
-		$response = $this->getLastEvent($eventResponse,$activity);
-        log::add('zero_motorcycles', 'debug', "			-> response event " . $activity  ." ". json_encode($response));
-        $cache=(cache::byKey('zero_motorcycles::'. $cacheName .'::'.$this->getId()))->getValue(false);
-      	log::add('zero_motorcycles', 'debug', "				=> cache value for " . $cacheName  ." ". $cache);
-      	log::add('zero_motorcycles', 'debug', "				=> timestamp response  " . $response["timestamp"]);
-
-        if (!(is_null($response)) && $response["timestamp"] != '' and ($response["timestamp"] > $cache)) {
-          log::add('zero_motorcycles', 'debug', '					-> send notif for ' . $activity);
-          cache::set('zero_motorcycles::'.$cacheName.'::'.$this->getId(),$response["timestamp"], 0);
-          
-          switch ($cacheName) {
-              case 'alarmStatus':
-                  $options = array('title' => $this->getConfiguration('cfgMsgTitle'), 'message'=>$response["event"] .' par ' . $response["detailEvent"]);
-                  break;
-              case 'alarmOpenedDoor':
-                  $options = array('title' => $this->getConfiguration('cfgMsgTitle'), 'message'=>$response["event"] .' -> ' . $response["detailEvent"]);
-                  break;
-              case 'alarmIntrusion':
-                  $options = array('title' => $this->getConfiguration('cfgMsgTitle'), 'message'=>$response["event"]);
-				  $this->checkAndUpdateCmd('alarmState', 1);
-                  break;
-          }
-          
-          $notifCmd->execCmd($options, $cache=0);
-        } else {
-			if ($cacheName == 'alarmIntrusion') {
-				$this->checkAndUpdateCmd('alarmState', 0);
-			}
-		}
-    }
-  
-  	private static function getLastEvent($eventResponse,$eventType) {
-      
-        $resultArr=json_decode($eventResponse,true);
-
-        foreach($resultArr as $journalK=>$journalV) {
-          foreach($journalV as $eventDateK=>$eventDateV){
-			if ($eventDateK != 'error') {
-				foreach($eventDateV as $eventDetailK=>$eventDetailV){
-					if (array_key_exists('title', $eventDetailV['fields'])) {
-						$event=str_replace("'"," ",$eventDetailV['fields']['title']);
-
-						if (self::stringContains($eventType,$event)) {
-							$mefDate=self::mefDateTime($eventDetailV['fields']['creationDatetime']);
-							return array("date" => $mefDate, "timestamp"=> strtotime($mefDate),"event" => $event, "detailEvent" => str_replace("'"," ",$eventDetailV['fields']['subtitle']));
-						}
-					}
-				            
-
-
-				}
-			}
-          }	
-        }
-		
-		return NULL;
-    }
-  
-  	private static function stringContains($string_1, $string_2) {
+	private static function stringContains($string_1, $string_2) {
       	if ((strtolower($string_1) == strtolower($string_2)) or 
               (strpos(strtolower($string_1),strtolower($string_2)) !== false ) or 
               (strpos(strtolower($string_2),strtolower($string_1)) !== false )) {
@@ -184,47 +83,14 @@ class zero_motorcycles extends eqLogic {
 
      /* Fonction exécutée automatiquement toutes les heures par Jeedom */
     public static function cronHourly() {
-      log::add('zero_motorcycles', 'debug', 'Exécution du cron hourly Alarme IMA - Start');
+      log::add('zero_motorcycles', 'debug', 'Exécution du cron hourly zero_motorcycles - Start');
       foreach (eqLogic::byType('zero_motorcycles', true) as $zero_motorcycles) {
         $zero_motorcycles->writeSeparateLine();
-        $zero_motorcycles->getCmd(null, 'refreshAlarmEvents')->execCmd();
-        $zero_motorcycles->getCmd(null, 'refreshCameraSnapshot')->execCmd();
+        
         $zero_motorcycles->writeSeparateLine();
       }
-      log::add('zero_motorcycles', 'debug', 'Exécution du cron hourly Alarme IMA - End');
+      log::add('zero_motorcycles', 'debug', 'Exécution du cron hourly zero_motorcycles - End');
     }
-
-    /* Fonction exécutée automatiquement tous les jours par Jeedom */
-      public static function cronDayly() {
-		log::add('zero_motorcycles', 'debug', 'Exécution du cron daily Alarme IMA - Start');
-		log::add('zero_motorcycles', 'debug', '	* Suppression snapshot de plus de 10J');
-		
-		//10 days
-		$threshold = 864000;
-		$nbDelete=0;
-		
-		foreach (eqLogic::byType('zero_motorcycles', true) as $zero_motorcycles) {
-			$folder=new DirectoryIterator(self::SNAPSHOT_PATH. $zero_motorcycles->getId());
-			log::add('zero_motorcycles', 'debug',' 	  - équipement Ima Protec traité : ' . $zero_motorcycles->getId());
-			log::add('zero_motorcycles', 'debug',' 		-> esapce utilisé avant purge : ' . shell_exec('du -sh '. self::SNAPSHOT_PATH. $zero_motorcycles->getId()));
-			foreach($folder as $file) {
-			  try {			
-				if($file->isFile() && !$file->isDot() && (time() - $file->getMTime() > $delta)) {
-					log::add('zero_motorcycles', 'debug',"			- File : " . self::SNAPSHOT_PATH. $zero_motorcycles->getId().'/'.$file->getFilename()  . '| creation date : ' .  $file->getMTime() . '	==> deleted');
-					unlink(self::SNAPSHOT_PATH. $zero_motorcycles->getId().'/'.$file->getFilename());
-					$nbDelete++;
-				}
-			  } catch (Exception $e) {
-				$zero_motorcycles->manageErrorAPI("cronDayly",'Error on deleteFile function on a file : ' .  $e->getMessage());			  
-			  }
-			}
-			log::add('zero_motorcycles', 'debug', ' 		-> Nb fichiers purgés : ' . $nbDelete);
-		}
-
-		log::add('zero_motorcycles', 'debug', 'Exécution du cron daily Alarme IMA - End');
-      }
-	
-
 
     /*     * *********************Méthodes d'instance************************* */
 
@@ -520,11 +386,11 @@ class zero_motorcycles extends eqLogic {
 
     public function preUpdate() {
 		log::add('zero_motorcycles', 'debug',  "appel preUpdate");
-   		if (empty($this->getConfiguration('login_ima'))) {
+   		if (empty($this->getConfiguration('login_zero_motorcycles'))) {
 			throw new Exception(__('L\'identifiant ne peut pas être vide',__FILE__));
 		}
 
-		if (empty($this->getConfiguration('password_ima'))) {
+		if (empty($this->getConfiguration('password_zero_motorcycles'))) {
 			throw new Exception(__('Le mot de passe ne peut etre vide',__FILE__));
 		}
       
@@ -543,283 +409,8 @@ class zero_motorcycles extends eqLogic {
         
     }
 
-    /*
-     * Non obligatoire mais permet de modifier l'affichage du widget si vous en avez besoin */
-//    public function toHtml($_version = 'dashboard') {
-//		$ret=parent::toHtml();
-//        log::add('zero_motorcycles', 'debug', "ceci".$ret);
-//		return $ret;
-//      }
-
-    /*
-     * Non obligatoire mais ca permet de déclancher une action après modification de variable de configuration
-    public static function postConfig_<Variable>() {
-    }
-     */
-
-    /*
-     * Non obligatoire mais ca permet de déclancher une action avant modification de variable de configuration
-    public static function preConfig_<Variable>() {
-    }
-     */
 
     /*     * **********************Getteur Setteur*************************** */
-  public function GetAlarmState()	{
-  	log::add('zero_motorcycles', 'debug',  "  GetAlarmState Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-    try {
-      	$myImaProtectAlarm = $this->getInstanceIMAApi();
-		log::add('zero_motorcycles', 'debug',  "	* Recuperation statut de l'alarme");
-		
-		$alarmeStatus = $myImaProtectAlarm->getAlarmStatus();
-      
-      	if (!isset($alarmeStatus)) {
-			$oldValue=$this->getCmd(null, 'statusAlarme')->execCmd();
-            log::add('zero_motorcycles', 'error', "	    - Impossible de trouver le status, on conserve la valeur précédente : " . $oldValue);
-            return $oldValue;
-        }
-
-        $convStatusToNumeric=array(
-          "on" => "2",
-          "partial" => "1",
-          "off"=> "0"
-        );
-		
-		$convStatusToFrenchStatus=array(
-          "on" => "Total",
-          "partial" => "Partiel",
-          "off"=> "Désactivée"
-        );
-
-        $numericStatus=$convStatusToNumeric[$alarmeStatus];
-        log::add('zero_motorcycles', 'debug', "	    - Nouveau status numerique alarme: $numericStatus | $alarmeStatus");	
-		
-		$oldValue=$this->getCmd(null, 'statusAlarme')->execCmd();	
-      
-      
-        $bEventsRefreshed=(bool)FALSE;              
-		if (isset($numericStatus) and $numericStatus!=self::IMA_IGNORED)  {
-			if (isset($oldValue) && (is_numeric($oldValue) OR $oldValue =='')) {
-			  if (strcmp($oldValue,$numericStatus) > 0 OR  strcmp($oldValue,$numericStatus) < 0) {
-				log::add('zero_motorcycles', 'debug',  " Le statut de l alarme a change (old|new): $oldValue | $numericStatus");
-				$this->checkAndUpdateCmd('statusAlarme', $numericStatus);		
-				$this->checkAndUpdateCmd('binaryAlarmStatus',($numericStatus > 0 ? 1:0));
-				$this->checkAndUpdateCmd('alarmMode',$convStatusToFrenchStatus[$alarmeStatus]);
-				
-				$this->getCmd(null, 'refreshAlarmEvents')->execCmd();
-				$bEventsRefreshed=(bool)TRUE;
-			  } else {
-				log::add('zero_motorcycles', 'debug',  " Le statut de l'alarme n'a pas changé (old|new): $oldValue | $numericStatus");
-			  }
-			}
-		} else {
-			log::add('zero_motorcycles', 'debug', "Retour ignoré");
-		}
-		
-		if ($this->getConfiguration('cfgSendMsg') === '1' and $this->getConfiguration('cfgCmdSendMsg') != '' ) {
-			$notifCmd=cmd::byId(str_replace('#','',$this->getConfiguration('cfgCmdSendMsg')));
-			if (is_object($notifCmd)) {
-				$this->manageNotifications($bEventsRefreshed,$notifCmd);
-			}
-		}
-		
-        log::add('zero_motorcycles', 'debug',  "  GetAlarmState End");	
-    } catch (Exception $e) {
-      	$this->manageErrorAPI("GetAlarmState",$e->getMessage());
-    }
-  }
- 
-  public function GetAlarmEvents()	{
-  	log::add('zero_motorcycles', 'debug',  "  GetAlarmEvents Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try{
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-		log::add('zero_motorcycles', 'debug',  "	* Recover alarm events");
-		$alarmEvent = $myImaProtectAlarm->getAlarmEvent();
-        log::add('zero_motorcycles', 'debug',  "  GetAlarmEvents End");
-		return $alarmEvent;
-	} catch (Exception $e) {
-		$this->manageErrorAPI("GetAlarmEvents",$e->getMessage());
-	}
-  }
-  
-  public function GetCamerasSnapshot()	{
-  	log::add('zero_motorcycles', 'debug',  "  GetCamerasSnapshot Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try {
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-		log::add('zero_motorcycles', 'debug',  "	* Recover alarm events");
-		$cameraEvents = $myImaProtectAlarm->getCamerasSnapshot();
-		log::add('zero_motorcycles', 'debug',  "  GetCamerasSnapshot End");
-      	return $cameraEvents;
-       
-	} catch (Exception $e) {
-		$this->manageErrorAPI("GetCamerasSnapshot",$e->getMessage());
-	}
-  }
-
-	private function getLastPictureTaken($cameraEvents) {
-		log::add('zero_motorcycles', 'debug',  "		* getLastPictureTaken - Start : ".$cameraEvents);
-		$response='';
-    	$resultArr=json_decode($cameraEvents,true);
-        foreach($resultArr as $event) {        
-          foreach($event['images'] as $img) {
-            	if (!$this->IsNullOrEmpty($img)) {
-					$response=$img;
-					break;
-                }
-          }
-		  
-			if (!$this->IsNullOrEmpty($response)) {
-				break;
-			}
-        }
-		log::add('zero_motorcycles', 'debug',  "		* getLastPictureTaken - response : ".$response);
-		return $response;
-	}
-	
-  public function buildTabCamerasEvents($cameraEvents){
-    	log::add('zero_motorcycles', 'debug',  "		* buildTabCamerasEvents - Start : ".$cameraEvents);
-    	$resultArr=json_decode($cameraEvents,true);
-    
-    	$cameraEventTab  = "<div class=\"tableWrap\">";
-		$cameraEventTab .= "<table>";
-		$cameraEventTab .= "<thead>";
-		$cameraEventTab .= "<tr>";
-    	$cameraEventTab .= "<th></th>";
-		$cameraEventTab .= "<th>Date</th>";
-		$cameraEventTab .= "<th>Etat</th>";
-		$cameraEventTab .= "<th>Elément</th>";
-		$cameraEventTab .= "<th>Photos</th>";
-		$cameraEventTab .= "</tr>";
-		$cameraEventTab .= "</thead>";
-		$cameraEventTab .= "<tbody>";
-    
-
-        foreach($resultArr as $event) {
-          $date=$event['date'];
-          $etat=$event['type'];
-          $element=$event['name'];
-          $photos="";
-          $pk=$event['pk'];
-          $item=0;
-          
-          foreach($event['images'] as $img) {
-            	if (!$this->IsNullOrEmpty($img)) {
-                  if ($item > 0) {
-                    $photos.=',' . $img;
-                  } else {	
-                    $photos=$img;
-                  }
-                  $item++;
-                }
-          }
-
-		  
-          $cameraEventTab .=  "<tr>";
-		  $cameraEventTab .= "<td><i class=\"fa fa-trash\" aria-hidden=\"true\" onclick=deletePicture(\"";
-		  $cameraEventTab .= $pk;
-		  $cameraEventTab .= "\")></i></td>";
-          $cameraEventTab .=  "<td>$date</td>";
-          $cameraEventTab .=  "<td>$etat</td>";
-          $cameraEventTab .=  "<td>$element</td>";
-          $cameraEventTab .=  "<td>";
-		  $cameraEventTab .=  "<a class=\"zoom\" href=\"#\" onclick=getPicture(\"";
-		  $cameraEventTab .= $photos;
-		  $cameraEventTab .=  "\") data-eqLogic_id=\"#id#\">";
-          
-          if ($item > 1) {
-            $cameraEventTab .=  " photos</a>";
-          } else {
-            $cameraEventTab .=  " photo</a>";
-          }
-
-          
-          $cameraEventTab .=  "</td>";
-          $cameraEventTab .=  "</tr>";  
-        }
-
-          $cameraEventTab .=  "</tbody>";
-          $cameraEventTab .=  "</table>";
-          $cameraEventTab .=  "</div>";
-          //log::add('zero_motorcycles', 'debug',  "		* buildTabCamerasEvents- End => $cameraEventTab");
-		  log::add('zero_motorcycles', 'debug',  "		* buildTabCamerasEvents- End");
-          return $cameraEventTab;
-  }
-
-
-  public function buildTabAlarmEvents($alarmEvents){
-    	log::add('zero_motorcycles', 'debug',  "		* build alarm events - Start");
-    	$resultArr=json_decode($alarmEvents,true);
-
-    	$alarmeEventTab ="<div class=\"tableWrap\">";
-		$alarmeEventTab .= "<table>";
-		$alarmeEventTab .= "<thead>";
-		$alarmeEventTab .= "<tr>";
-		$alarmeEventTab .= "<th></th>";
-		$alarmeEventTab .= "<th>Date</th>";
-		$alarmeEventTab .= "<th>Evènement</th>";
-		$alarmeEventTab .= "<th>Détail</th>";
-		$alarmeEventTab .= "</tr>";
-		$alarmeEventTab .= "</thead>";
-		$alarmeEventTab .= "<tbody>";
-
-		$journal=$resultArr['journal'];
-		foreach($journal as $eventDateK=>$eventDateV){
-			if ($eventDateK != 'error') {				
-				foreach($eventDateV as $eventDetailK=>$eventDetailV){
-					if (array_key_exists('title', $eventDetailV['fields'])) {
-						$event='';
-						$icon='';
-						$mefDate='';
-						$detail='';
-						if (array_key_exists('title', $eventDetailV['fields'])) {
-							$event=str_replace("'"," ",$eventDetailV['fields']['title']);
-						}
-
-						if (array_key_exists('subtitle', $eventDetailV['fields'])) {
-							$detail=str_replace("'"," ",$eventDetailV['fields']['subtitle']);
-						}
-
-						if (array_key_exists('icon', $eventDetailV['fields'])) {
-							$icon=self::storeAndBuildIcon($eventDetailV['fields']['icon']);
-						}
-
-						if (array_key_exists('creationDatetime', $eventDetailV['fields'])) {
-							$mefDate=self::mefDateTime($eventDetailV['fields']['creationDatetime']);
-						}
-					}				
-					$alarmeEventTab .=  "<tr>";
-					$alarmeEventTab .=  "<td><img src=\"$icon\" alt=\"\" style=\"width: 30px\"/</td>";
-					$alarmeEventTab .=  "<td>$mefDate</td>";
-					$alarmeEventTab .=  "<td>$event</td>";
-					$alarmeEventTab .=  "<td>$detail</td>";
-					$alarmeEventTab .=  "</tr>"; 
-				}
-			} else {
-				log::add('zero_motorcycles', 'debug',  "			* error in response of events journal : " . $eventDateK . ' -> ' . json_encode($eventDateV));
-			}
-		}	
-        $alarmeEventTab .=  "</tbody>";
-		$alarmeEventTab .=  "</table>";
-    	$alarmeEventTab .=  "</div>";
-
-		log::add('zero_motorcycles', 'debug',  "		* build alarm events tab - End");
-    	return $alarmeEventTab;
-  }
-
-  private function storeAndBuildIcon($urlImg) {
-	if (!file_exists(self::ICON_PATH)) {
-		mkdir(self::ICON_PATH, 0777, true);
-	}
-
-	$mefImdName=str_replace(array('https://pilotageadistance.imateleassistance.com/proxy/static/hss/events_v3/'),array(''),$urlImg);
-	file_put_contents(self::ICON_PATH.$mefImdName, file_get_contents($urlImg));
-
-	return network::getNetworkAccess().self::ACCESS_ICON_PATH.$mefImdName;
-	
-  }
-
   private function mefDateTime($dateTime) {
 	try{
 		$date=new DateTime($dateTime);
@@ -832,215 +423,6 @@ class zero_motorcycles extends eqLogic {
 	}
   }
 
-	public function removeDatasSession($input) {
-		log::add('zero_motorcycles', 'debug',  __FUNCTION__ .' - id : ' . $input );
-		config::remove('imaToken_session_'.$input,'zero_motorcycles');
-	}
-  
-  public function getContactList($input){   
-    log::add('zero_motorcycles', 'debug',  "  getContactList Start : " . $input);
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-    $response='';
-	try {
-      	$eqlogic = eqLogic::byId($input);
-      	$imaProtectAPI = new imaProtectNewAPI($eqlogic->getConfiguration('login_ima'),$eqlogic->getConfiguration('password_ima'),$eqlogic->getConfiguration('cfgContactList'),$input,$eqlogic->getConfiguration('checkPwdXO'));
-		
-		if (!($imaProtectAPI->getDatasSession())) {
-			log::add('zero_motorcycles', 'debug',  "	* Validation couple user / mdp");
-			$imaProtectAPI->login();
-			log::add('zero_motorcycles', 'debug',  "	* Recuperation information compte IMA Protect");
-			$imaProtectAPI->getTokens();
-		}
-      	
-      	log::add('zero_motorcycles', 'debug',  "	* Call backend getContactList()");
-      	$response =  $imaProtectAPI->getContactList();
-	} catch (Exception $e) {
-	  $this->manageErrorAPI("getContactList",$e->getMessage());
-	}
-    log::add('zero_motorcycles', 'debug',  "  getContactList End : ");
-    return $response;
-  }
-  
-  
-  public function setAlarmToOff($pwd){   
-    log::add('zero_motorcycles', 'debug',  "  SetAlarmToOff Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try {
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-	    log::add('zero_motorcycles', 'debug',  "	* Extinction alarme");
-
-		$checkPwdXO=$this->getConfiguration('checkPwdXO');
-		if ($checkPwdXO == '1' && empty($pwd)) {
-			$this->manageErrorAPI('setAlarmToOff','Le code XO est nécessaire pour désarmer l\'alarme');		
-		}
-	
-		$myImaProtectAlarm->setAlarmToOff($pwd);
-	} catch (Exception $e) {
-	  $this->manageErrorAPI("setAlarmToOff",$e->getMessage());
-	}
-    log::add('zero_motorcycles', 'debug',  "  SetAlarmToOff End");
-  }
-  
-  public function setAlarmToOn(){   
-    log::add('zero_motorcycles', 'debug',  "  setAlarmToOn Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try{
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-	    log::add('zero_motorcycles', 'debug',  "	* Mise en route alarme");
-		$myImaProtectAlarm->setAlarmToOn();
-	} catch (Exception $e) {
-	  $this->manageErrorAPI("setAlarmToOff",$e->getMessage());
-	}
-    log::add('zero_motorcycles', 'debug',  "  setAlarmToOn End");
-  }
-  
-  public function setAlarmToPartial(){   
-    log::add('zero_motorcycles', 'debug',  "  setAlarmToPartial Start");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try{
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-	    log::add('zero_motorcycles', 'debug',  "	* Mise en route alarme");
-		$myImaProtectAlarm->setAlarmToPartial();
-	} catch (Exception $e) {
-	  $this->manageErrorAPI("setAlarmToOff",$e->getMessage());
-	}
-    log::add('zero_motorcycles', 'debug',  "  setAlarmToPartial End");
-  }
-  
-  public function getPictures($pictureUrl){   
-	
-    log::add('zero_motorcycles', 'debug',  "  getPictures Start => $pictureUrl");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try {
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-		$byteArray=$myImaProtectAlarm->getPictures($pictureUrl);
-	    if (isset($byteArray)) {
-			$str=base64_encode($byteArray);
-			return base64_encode($byteArray);
-		} else {
-			$this->manageErrorAPI("getPictures","Empty byte array recover");
-		}
-	} catch (Exception $e) {
-      	$this->manageErrorAPI("getPictures",$e->getMessage());
-    } 
-  }
-  
-  public function deletePictures($picture){   
-    log::add('zero_motorcycles', 'debug',  "  deletePictures Start => $picture");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try {
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-		$result=$myImaProtectAlarm->deletePictures($picture);
-		$cameraSnapshot=$this->GetCamerasSnapshot();
-		$this->checkAndUpdateCmd('cameraSnapshot', $this->buildTabCamerasEvents($cameraSnapshot));
-	} catch (Exception $e) {
-      	$this->manageErrorAPI("getPictures",$e->getMessage());
-    } 
-    log::add('zero_motorcycles', 'debug',  "  deletePictures End");
-  }
-  
-
-  public function takeSnapshot($roomId) {
-	log::add('zero_motorcycles', 'debug',  "  takeSnapshot Start => $roomId");
-  	log::add('zero_motorcycles', 'debug',  "	* instanciation api ima protect");
-	try {
-		$myImaProtectAlarm = $this->getInstanceIMAApi();
-		$result=$myImaProtectAlarm->takeSnapshot($roomId);
-		log::add('zero_motorcycles', 'debug',  "	* pause of 20s in order to be able to retrieve new snapshot");
-		sleep(20);
-		$cameraSnapshot=$this->GetCamerasSnapshot();
-		if (isset($cameraSnapshot)) {
-			log::add('zero_motorcycles', 'debug', " * MAJ cameraSnapshotBrute");
-			$this->checkAndUpdateCmd('cameraSnapshotBrute', $cameraSnapshot);
-			log::add('zero_motorcycles', 'debug', " * MAJ cameraSnapshot");
-			$this->checkAndUpdateCmd('cameraSnapshot', $this->buildTabCamerasEvents($cameraSnapshot));
-			return $this->getLastPictureTaken($cameraSnapshot);
-		}
-      	return '';
-	} catch (Exception $e) {
-      	$this->manageErrorAPI("takeSnapshot",$e->getMessage());
-    } 
-    log::add('zero_motorcycles', 'debug',  "  takeSnapshot End");
-  }
-
-  
-  private function getInstanceIMAApi(){
-    try {
-      	$imaProtectAPI = new imaProtectNewAPI($this->getConfiguration('login_ima'),$this->getConfiguration('password_ima'),$this->getConfiguration('cfgContactList'),$this->getId(),$this->getConfiguration('checkPwdXO'));
-				
-		if (!($imaProtectAPI->getDatasSession())) {
-			log::add('zero_motorcycles', 'debug',  "	* Validation couple user / mdp");
-			$imaProtectAPI->login();
-			log::add('zero_motorcycles', 'debug',  "	* Recuperation token IMA Protect");
-			$imaProtectAPI->getTokens();
-			log::add('zero_motorcycles', 'debug',  "	* Recuperation informations sur les caméras IMA Protect");
-			$imaProtectAPI->getOtherInfo();
-			$this->setRoomsList($imaProtectAPI);
-		}
-      	return $imaProtectAPI;
-    } catch (Exception $e) {
-      	$this->manageErrorAPI("getInstanceIMAApi",$e->getMessage());
-    }
-  }
-  
-
-  private function setRoomsList($imaProtectAPI){
-		log::add('zero_motorcycles', 'debug',  "	* setRoomsList Start : ". json_encode($imaProtectAPI->rooms));
-		$cmdActionScreenshot = $this->getCmd(null, 'actionScreenshot');
-		if (is_object($cmdActionScreenshot)) {
-          	$listValue='';
-            $placeholderMessage='';
-			$roomsList=$imaProtectAPI->rooms;
-			for ($i = 0; $i < count($roomsList); $i++) {
-              	if (!empty($roomsList[$i]["room"])){
-                  if (!$this->IsNullOrEmpty($listValue)) {
-                  		$listValue.= ";";
-                        $placeholderMessage.=',';
-                  }
-                  $listValue.= $roomsList[$i]["pk"] . "|" . $roomsList[$i]["room"];
-                  $placeholderMessage.=$roomsList[$i]["room"];
-
-				  //create cmd for camera snapshot
-					$this->createCmdActionOther('Snapshot camera '.$roomsList[$i]["room"],$roomsList[$i]["room"],$roomsList[$i]["pk"]);
-                }
-
-				
-			}
-			
-			if ($listValue != '') {
-				$cmdActionScreenshot->setConfiguration('listValue', $listValue);
-              	$cmdActionScreenshot->setDisplay('title_possibility_list','get, delete, take');
-                $cmdActionScreenshot->setDisplay('message_placeholder',$placeholderMessage);
-				$cmdActionScreenshot->save();
-			}
-		}
-	  log::add('zero_motorcycles', 'debug',  "	* setRoomsList End");
-  }
-
-  private function createCmdActionOther($cmdName,$room,$pk) {
-	log::add('zero_motorcycles', 'debug',  '	* createCmdActionOther : ' . $cmdName . '|' .  $room . '|' . $pk . ' for id :' . $this->getId());
-	$cmdActionOther = $this->getCmd(null, 'snapshot_'.$room.'_'.$pk);
-	if (!is_object($cmdActionOther)) {
-		$cmdActionOther = new zero_motorcyclesCmd();
-		$cmdActionOther->setName('Snapshot camera '.$room);
-		$cmdActionOther->setEqLogic_id($this->getId());
-		$cmdActionOther->setLogicalId('snapshot_'.$room.'_'.$pk);
-		$cmdActionOther->setType('action');
-		$cmdActionOther->setSubType('other');
-		$cmdActionOther->setTemplate('dashboard', 'default');
-		$cmdActionOther->setTemplate('mobile','default');
-		$cmdActionOther->setOrder($this->getLastindexCmd());
-		log::add('zero_motorcycles', 'debug', 'Création de la commande '.$cmdActionOther->getName().' (LogicalId : '.$cmdActionOther->getLogicalId().')');
-		$cmdActionOther->save();
-	}
-  }
-
-  private function getLastindexCmd() {		
-	return sizeof($this->getCmd());
-  }
-
-
-  
   private function IsNullOrEmpty($input){
     return (!isset($input) || trim($input)==='');
   }
@@ -1054,27 +436,7 @@ class zero_motorcycles extends eqLogic {
 		log::add('zero_motorcycles', 'debug',  "*********************************************************************");
   }
 
-  public function buildFilePathImage($id) {
-	log::add('zero_motorcycles', 'debug',  "	* " . __FUNCTION__ );
-	$date = new DateTime();
-	$dateMef=$date->format('Y-m-d H:i:s');
-	$dateMefPicture=$date->format('Y-m-d_H_i_s');
-
-	if (!file_exists(self::SNAPSHOT_PATH.$id)) {
-		mkdir(self::SNAPSHOT_PATH.$id, 0777, true);
-	}
-
-	return self::SNAPSHOT_PATH.$id.'/snap_zero_motorcycles_' .$dateMefPicture .'.jpg';
-  }
-
-  public function saveImgToFileSystem($filePath,$base64Image) {
-	log::add('zero_motorcycles', 'debug',  "	* " . __FUNCTION__ .' |file path : ' . $filePath);
-	$imageData = base64_decode($base64Image);
-	$source = imagecreatefromstring($imageData);
-	$imageSave = imagejpeg($source,$filePath,100);
-	imagedestroy($source);
-  }
-  
+ 
 	public function toHtml($_version = 'dashboard') {
 	  log::add('zero_motorcycles', 'debug',  "Function toHtml - Start");
 	  

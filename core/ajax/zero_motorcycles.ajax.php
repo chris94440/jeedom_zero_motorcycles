@@ -27,15 +27,11 @@ try {
 
     ajax::init();
   
-	if (init('action') == 'getContactList') {
-		$result=zero_motorcycles::getContactList(init('input'));
-		ajax::success($result);
+    if (init('action') == 'syncDevices') {
+		zero_motorcycles::synchronize();
+		ajax::success();
 	}
-	
-	if (init('action') == 'removeDatasSession') {
-		$result=zero_motorcycles::removeDatasSession(init('input'));
-		ajax::success($result);
-	}
+
 	
     throw new Exception(__('Aucune méthode correspondante à : ', __FILE__) . init('action'));
     /*     * *********Catch exeption*************** */
