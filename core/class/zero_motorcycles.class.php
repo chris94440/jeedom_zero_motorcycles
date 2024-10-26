@@ -21,6 +21,7 @@
   require_once __DIR__  . '/../../../../core/php/core.inc.php';
 
 class zero_motorcycles extends eqLogic {
+	/* base url*/
 	const BASE_URL='https://mongol.brono.com/mongol/api.php?commandname=';
 	  
     /*
