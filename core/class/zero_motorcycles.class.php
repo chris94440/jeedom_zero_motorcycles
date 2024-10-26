@@ -65,14 +65,14 @@ class zero_motorcycles extends eqLogic {
 	}
 
 	public function synchronize() {
-		//$this->writeSeparateLine();
+		$this->writeSeparateLine();
 		log::add(__CLASS__, 'debug', 'Start' . __FUNCTION__ . ' equipement Zero Motorcycles');
 
-		//$this->checkCredentials();
+		$this->checkCredentials();
 		$this->doRequest(self::BASE_URL.'get_units&format=json&user='..'&pass=',null, "GET", null);		
 
 		log::add(__CLASS__, 'debug', 'End' . __FUNCTION__ . ' equipement Zero Motorcycles');
-		//$this->writeSeparateLine();
+		$this->writeSeparateLine();
 	}
 
 	private static function checkCredentials() {
