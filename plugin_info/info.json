@@ -1,7 +1,7 @@
 {
 	"id" : "zero_motorcycles",
 	"name" : "Zero motorcycles",
-	"description" : "Gestion de l'alarme IMA téléassistance",
+	"description" : "Gestion des véhicules Zero motorcycles",
 	"changelog" : "",
 	"documentation": "",
 	"licence" : "AGPL",
