@@ -42,12 +42,7 @@ class zero_motorcycles extends eqLogic {
 	https://mongol.brono.com/mongol/api.php?commandname=get_units&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$
 	https://mongol.brono.com/mongol/api.php?commandname=get_last_transmit&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$&unitnumber=1073108
 	*/
-
-  	private function fmt_date($timeStamp) {
-		setlocale(LC_TIME, 'fr_FR.utf8','fra');
-		return(ucwords(strftime("%a %d %b %T",$timeStamp)));
-	}
-  
+	  
     /*
      * Fonction exécutée automatiquement toutes les minutes par Jeedom    */
 	public static function cron() {
@@ -69,6 +64,10 @@ class zero_motorcycles extends eqLogic {
 		}
 	}
 
+	public static function synchronize() {
+		log::add(__CLASS__, 'debug', __FUNCTION__);
+	}
+
 	private static function stringContains($string_1, $string_2) {
       	if ((strtolower($string_1) == strtolower($string_2)) or 
               (strpos(strtolower($string_1),strtolower($string_2)) !== false ) or 
@@ -76,9 +75,13 @@ class zero_motorcycles extends eqLogic {
           	return true;
         } else {
           	return false;
-        }
-      
+        }      
     }
+
+	private function fmt_date($timeStamp) {
+		setlocale(LC_TIME, 'fr_FR.utf8','fra');
+		return(ucwords(strftime("%a %d %b %T",$timeStamp)));
+	}
 
 
      /* Fonction exécutée automatiquement toutes les heures par Jeedom */
