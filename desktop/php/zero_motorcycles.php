@@ -150,28 +150,6 @@ $eqLogics = eqLogic::byType($plugin->getId());
 								</div>
 							</div>
 						</div>
-
-						<!-- Partie droite de l'onglet "Équipement" -->
-						<!-- Affiche un champ de commentaire par défaut mais vous pouvez y mettre ce que vous voulez -->
-						<div class="col-lg-2">
-							<legend><i class="fas fa-info"></i> {{Informations}}</legend>
-							<div class="form-group">
-								<img id="img_eqZeroMotorcycles" src="" style="height : 75%;width : 75%"/>										
-							</div>
-						</div>
-						<div class="col-lg-4">
-							<legend><i class="fas fa-info"></i> {{Commandes disponibles}}</legend>
-							<div class="col-lg-6">
-								<div class="form-group">
-									<div id="div_equipment_details_info"></div>				
-								</div>
-							</div>
-							<div class="col-lg-6">
-								<div class="form-group">
-									<div id="div_equipment_details_action"></div>				
-								</div>
-							</div>
-						</div>
 					</fieldset>
 				</form>
 			</div><!-- /.tabpanel #eqlogictab-->

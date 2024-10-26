@@ -20,11 +20,6 @@
 //require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
   require_once __DIR__  . '/../../../../core/php/core.inc.php';
 
-if (!class_exists('imaProtectNewAPI')) {
-	//require_once dirname(__FILE__) . '/../../3rdparty/zero_motorcyclesAPI.class.php';
-  	require_once __DIR__  . '/../../3rdparty/imaProtectNewAPI.class.php';
-}
-
 class zero_motorcycles extends eqLogic {
 	const BASE_URL='https://mongol.brono.com/mongol/api.php?commandname=';
 	  
@@ -348,86 +343,10 @@ class zero_motorcycles extends eqLogic {
     }
 
  
-	public function toHtml($_version = 'dashboard') {
-	  log::add(__CLASS__, 'debug',  "Function toHtml - Start");
-	  
-	  $replace = $this->preToHtml($_version);
-	  log::add(__CLASS__, 'debug',  "Function toHtml - replace avant remplacement : $replace");
-	  //$replace=array();
-	  log::add(__CLASS__, 'debug',  "Function toHtml - ap pretohtml");
-	  if (!is_array($replace)) {
-		log::add(__CLASS__, 'debug',  "Function toHtml - dans le if");
-		return $replace;
-		log::add(__CLASS__, 'debug',  "Function toHtml - return replace");
-		
-	  }
-
-      $version = jeedom::versionAlias($_version);
-		log::add(__CLASS__, 'debug',  "Function toHtml - new version $version");
-		$cmdis=$this->getCmd('info', null);
-		foreach ($cmdis as $cmd) {
-			$cmd_LogId=$cmd->getLogicalId(); 
-			log::add(__CLASS__, 'debug',  "Function toHtml - commande info : $cmd_LogId | id : ". $cmd->getId());
-			$replace['#' . $cmd_LogId . '#'] = $cmd->execCmd();
-			$replace['#' . $cmd_LogId . '_id#'] = $cmd->getId();
-			$replace['#' . $cmd_LogId . '_collectDate#'] =date('d-m-Y H:i:s',strtotime($cmd->getCollectDate()));
-			$replace['#' . $cmd_LogId . '_updatetime#'] =date('d-m-Y H:i:s',strtotime( $this->getConfiguration('updatetime')));
-			
-		}
-	  
-		$cmdas=$this->getCmd('action', null);
-		foreach ($cmdas as $cmd) {
-			$cmd_LogId=$cmd->getLogicalId(); 
-			$replace['#' . $cmd_LogId . '_id#'] = $cmd->getId();
-			log::add(__CLASS__, 'debug',  "Function toHtml - commande action : $cmd_LogId | id : ". $cmd->getId());
-			if ($cmd->getConfiguration('listValue', '') != '') {
-				$listOption = '';
-				$elements = explode(';', $cmd->getConfiguration('listValue'));
-				$foundSelect = false;
-				foreach ($elements as $element) {
-					//list($item_val, $item_text) = explode('|', $element);
-					$coupleArray = explode('|', $element);
-					$item_val = $coupleArray[0];
-					$item_text  = (isset($coupleArray[1])) ? $coupleArray[1]: $item_val;
-				  
-					$cmdValue = $cmd->getCmdValue();
-					
-					if (is_object($cmdValue) && $cmdValue->getType() == 'info') {
-						if ($cmdValue->execCmd() == $item_val) {
-							$valSelected=$item_text;
-							$listOption .= '<option value="' . $item_val . '" selected>' . $item_text . '</option>';
-							$foundSelect = true;
-						} else {
-							$listOption .= '<option value="' . $item_val . '">' . $item_text . '</option>';
-						}
-					} else {
-						$listOption .= '<option value="' . $item_val . '">' . $item_text . '</option>';
-					}
-				}
-				if (!$foundSelect) {
-					$listOption = '<option value="" selected>Aucun</option>' . $listOption;
-					$replace['#' . $cmd->getLogicalId() . '_Value#'] = 'Aucun';
-				}else{
-					$replace['#' . $cmd->getLogicalId() . '_Value#'] = $valSelected;
-				}
-				  
-				
-				$replace['#' . $cmd->getLogicalId() . '_listValue#'] = $listOption;
-			}
-		}
-		 
-		//pass ima option for xo code
-		$replace['#checkPwdXO#'] = $this->getConfiguration('checkPwdXO');
-
-		//pass ima option if xo code is alphanumeric
-		$replace['#cfgXOAlpha#'] = $this->getConfiguration('cfgXOAlpha');
-
-      log::add(__CLASS__, 'debug',  "Function toHtml - Value replace : ".json_encode($replace));	
-      $html = template_replace($replace, getTemplate('core', $_version, 'default_zero_motorcycles', __CLASS__));
-      cache::set('widgetHtml' . $_version . $this->getId(), $html, 1);
-      log::add(__CLASS__, 'debug',  "Function toHtml - End");
-      return $html;
+	/*
+	public function toHtml($_version = 'dashboard') {	  
 	}
+	*/
 }
 
 
@@ -435,120 +354,8 @@ class zero_motorcyclesCmd extends cmd {
   	public function execute($_options = array()) {
       	$eqlogic = $this->getEqLogic();
       	$logicalId=$this->getLogicalId();
-      	log::add(__CLASS__, 'debug',  "  * Execution cmd alarmeIMA | cmd : $logicalId => title : ".$_options['title'] . " | message : " .$_options['message']);
-      	switch ($logicalId) {
-				case 'setModeAlarme':
-            		log::add(__CLASS__, 'debug',  "Click on setModeAlarme equipement");
-					$eqlogic->writeSeparateLine();
-            		
-            		if (isset($_options['title'])){
-                      if ($_options['title'] == 'on') {
-                        	$eqlogic->setAlarmToOn();
-                        	//$eqlogic->checkAndUpdateCmd('statusAlarme', '2');
-                      } else if ($_options['title'] == 'partial') {
-                        	$eqlogic->setAlarmToPartial();
-                        	//$eqlogic->checkAndUpdateCmd('statusAlarme', '1');
-                      } else if ($_options['title'] == 'off') {
-                        if (isset($_options['message'])) {
-                          	$eqlogic->setAlarmToOff($_options['message']);
-                          	//$eqlogic->checkAndUpdateCmd('statusAlarme', '0');
-                        } else {
-                          log::add(__CLASS__, 'debug',  "Click on setModeAlarme equipement ==> message absent");
-                        }
-                      } else {
-                        log::add(__CLASS__, 'debug',  "Click on setModeAlarme equipement ==> action demandée non gérée");
-                      }
-                    } else {
-                      log::add(__CLASS__, 'debug',  "Click on setModeAlarme equipement ==> aucune action demandée");
-                    }
-            		//log::add(__CLASS__, 'debug',  "Simulate click on refresh alarm status after action on it");
-                    $eqlogic->writeSeparateLine();
-            		$eqlogic->getCmd(null, 'refreshAlarmeStatus')->execCmd();
-            		break;
-          		case 'refreshAlarmeStatus':
-            		$eqlogic->writeSeparateLine();
-            		log::add(__CLASS__, 'debug',  "Click on refresh alarm status");
-					$eqlogic->GetAlarmState();
-            		$eqlogic->writeSeparateLine();
-            		break;
-          		case 'refreshAlarmEvents':
-            		$eqlogic->writeSeparateLine();
-            		log::add(__CLASS__, 'debug',  "Click on refresh alarm events");
-					$alarmEvent=$eqlogic->GetAlarmEvents();
-            		if (isset($alarmEvent)) {
-                      	log::add(__CLASS__, 'debug', " * MAJ alarmeEventsBrute");
-                      	$eqlogic->checkAndUpdateCmd('alarmeEventsBrute', $alarmEvent);
-						log::add(__CLASS__, 'debug', " * MAJ alarmeEvents");
-						$eqlogic->checkAndUpdateCmd('alarmeEvents', $eqlogic->buildTabAlarmEvents($alarmEvent));
-                    }
-					//manage notification on events
-					if ($eqlogic->getConfiguration('cfgSendMsg') === '1' and $eqlogic->getConfiguration('cfgCmdSendMsg') != '' ) {
-						$notifCmd=cmd::byId(str_replace('#','',$eqlogic->getConfiguration('cfgCmdSendMsg')));
-						if (is_object($notifCmd)) {
-							$eqlogic->manageNotifications(TRUE,$notifCmd);
-						} else {
-						}
-					}
-            		$eqlogic->writeSeparateLine();
-            		break;            
-         	 	case 'refreshCameraSnapshot':
-            		$eqlogic->writeSeparateLine();
-            		log::add(__CLASS__, 'debug',  "Click on refresh camera snapshot");
-            		$cameraSnapshot=$eqlogic->GetCamerasSnapshot();
-            		if (isset($cameraSnapshot)) {
-						log::add(__CLASS__, 'debug', " * MAJ cameraSnapshotBrute");
-                      	$eqlogic->checkAndUpdateCmd('cameraSnapshotBrute', $cameraSnapshot);
-						log::add(__CLASS__, 'debug', " * MAJ cameraSnapshot");
-						$eqlogic->checkAndUpdateCmd('cameraSnapshot', $eqlogic->buildTabCamerasEvents($cameraSnapshot));
-                    }
-            		$eqlogic->writeSeparateLine();
-                    break;
-          		case 'actionScreenshot':
-            		$eqlogic->writeSeparateLine();
-            		log::add(__CLASS__, 'debug',  "  * Request title : ".$_options['title'] . " | message : " .$_options['message']);
-            		if (isset($_options['message']) and isset($_options['title'])){
-                      	if ($_options['title']=="get") {
-	                      	return $eqlogic->getPictures($_options['message']);
-                        } else if ($_options['title']=="delete"){
-                          	$eqlogic->deletePictures($_options['message']);
-                        }  else if ($_options['title']=="take"){
-							return $eqlogic->takeSnapshot($_options['message']);
-						}else {
-                          	log::add(__CLASS__, 'debug',  "  * Request non prise en charge : ".$_options['title']);
-                        }
-                    } else {
-                      	log::add(__CLASS__, 'debug',  "  * Request non complète => manque title ou message");
-                    }
-            		$eqlogic->writeSeparateLine();
-            		break;
+      	log::add(__CLASS__, 'debug',  "  * Execution cmd zero_motorcycles | cmd : $logicalId => title : ".$_options['title'] . " | message : " .$_options['message']);     
 
-					//manage camera snapshot
-		
-        }
-
-		if (strpos($logicalId, 'snapshot') !== false) {
-			$aLogicalId=explode('_',$logicalId);
-			$pk=$aLogicalId[2];
-			$room=$aLogicalId[1];
-			log::add(__CLASS__, 'debug',  "  * Request snapshot on  : ". $room . ' -> ' . $pk . '|Notification : ' . $eqlogic->getConfiguration('cfgAlertSnapshot'));
-			$urlImg = $eqlogic->takeSnapshot($pk);
-			$base64Img = $eqlogic->getPictures($urlImg);
-			$eqlogic->checkAndUpdateCmd('cameraSnapshotImage', $base64Img);
-
-			if ($eqlogic->getConfiguration('cfgAlertSnapshot') === '1' && isset($base64Img)) {
-				$filePath=$eqlogic->buildFilePathImage($eqlogic->getId());
-				log::add(__CLASS__, 'debug',  "  	* Save snapshot image to file system : " . $filePath);
-				$eqlogic->saveImgToFileSystem($filePath,$base64Img);								
-				
-				$notifCmd=cmd::byId(str_replace('#','',$eqlogic->getConfiguration('cfgCmdSendMsg')));
-				if (is_object($notifCmd)) {
-					log::add(__CLASS__, 'debug',  "  	* Execute notification for sending snapshot image");
-					$options = array('title' => $eqlogic->getConfiguration('cfgMsgTitle') . ' : demande d\'image pour ' . $room,'message' => '', 'files'=> array($filePath));
-					$notifCmd->execCmd($options, $cache=0);
-				}	
-			}
-			$eqlogic->writeSeparateLine();		
-		}
 	}
 
 }

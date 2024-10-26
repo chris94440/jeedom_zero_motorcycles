@@ -104,75 +104,11 @@ $("#table_cmdi").sortable({
 	  jeedom.cmd.changeType($('#table_cmd tbody tr:last'), init(_cmd.subType));	  
   }
   
-  
-  $(".eqLogicDisplayCard").on('click', function(event) {
-	  var eqlogicId=$(this).attr('data-eqlogic_id');
-	  getImage(eqlogicId);
-	  getEqDetail(eqlogicId);	
-  });
-  
+ 
   $('.eqLogicAction[data-action=syncDevices]').on('click', function () {
 	  $('#div_alert').showAlert({message: '{{Synchronisation en cours}}', level: 'warning'});
 		syncDevices();
-  });
- 
-  
-  function getEqDetail(eqId) {
-	  $.ajax({// fonction permettant de faire de l'ajax
-		  type: "POST", // méthode de transmission des données au fichier php
-		  url: "plugins/zero_motorcycles/core/ajax/zero_motorcycles.ajax.php", // url du fichier php
-		  data: {
-			  action: "getEqlogicDetails",
-			  id : eqId
-		  },
-		  dataType: 'json',
-		  error: function (request, status, error) {
-			  handleAjaxError(request, status, error);
-		  },
-		  success: function (data) { // si l'appel a bien fonctionné
-			  getEquipmentDetails(data['result']);
-	  }
-	});
-	}
-  
-	function getEquipmentDetails(jsonDetail) {
-	  $('#div_equipment_details_info').empty();
-	  $('#div_equipment_details_action').empty();
-  
-	  var detailInfo ="<span><u>Type information : </u></span>";
-	  (jsonDetail['cmdsInfo']).forEach((item,index) => {
-		  detailInfo += "</br>";
-		  detailInfo += "<span>&nbsp;&nbsp;&nbsp;&nbsp;- "+item['name']+"</span>";
-	  });
-  
-	  var detailAction ="<span><u>Type action : </u></span>";
-	  (jsonDetail['cmdsAction']).forEach((item,index) => {
-		  detailAction += "</br>";
-		  detailAction += "<span>&nbsp;&nbsp;&nbsp;&nbsp;- "+item['name']+"</span>";
-	  });
-  
-	  $('#div_equipment_details_info').html('<div">'+detailInfo+'</div>');
-	  $('#div_equipment_details_action').html('<div">'+detailAction+'</div>');
-  }
-  
-  function getImage(eqId) {
-	  $.ajax({// fonction permettant de faire de l'ajax
-		  type: "POST", // méthode de transmission des données au fichier php
-		  url: "plugins/zero_motorcycles/core/ajax/zero_motorcycles.ajax.php", // url du fichier php
-		  data: {
-			  action: "getEqlogicImage",
-			  id : eqId
-		  },
-		  dataType: 'json',
-		  error: function (request, status, error) {
-			  handleAjaxError(request, status, error);
-		  },
-		  success: function (data) { // si l'appel a bien fonctionné
-		  $('#img_eqzero_motorcycles').attr("src", data['result']);
-	  }
-	});
-	}
-
+  });    
   
   function syncDevices() {
 	$.ajax({// fonction permettant de faire de l'ajax
