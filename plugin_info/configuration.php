@@ -25,18 +25,18 @@ if (!isConnect()) {
 <form class="form-horizontal">
     <fieldset>
         <div class="form-group">
-		  	<legend><i class="fas fa-list-alt"></i> {{Configuration connexion compte Somfy}}</legend>
+		  	<legend><i class="fas fa-list-alt"></i> {{Configuration connexion compte Zero Motorcycles}}</legend>
 			<div class="form-group">
 			  <label class="col-md-4 control-label">{{Nom utilisateur compte Somfy}}
-				<sup><i class="fas fa-question-circle tooltips" title="{{Nom utilisateur Somfy}}"></i></sup>
+				<sup><i class="fas fa-question-circle tooltips" title="{{Nom utilisateur Zero Motorcycles}}"></i></sup>
 			  </label>
 			  <div class="col-md-4">
 				<input class="configKey form-control" data-l1key="login_zero_motorcycles"/>
 			  </div>
 			</div>
 			<div class="form-group">
-			  <label class="col-md-4 control-label">{{Mot de passe compte Somfy}}
-				<sup><i class="fas fa-question-circle tooltips" title="{{Utilisateur Somfy }}"></i></sup>
+			  <label class="col-md-4 control-label">{{Mot de passe compte Zero Motorcycles}}
+				<sup><i class="fas fa-question-circle tooltips" title="{{Mot de passe compte Zero Motorcycles}}"></i></sup>
 			  </label>
 			  <div class="col-md-4">
 				<input type="password" class="configKey form-control" data-l1key="password_zero_motorcycles"/>
