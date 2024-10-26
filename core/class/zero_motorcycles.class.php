@@ -68,8 +68,13 @@ class zero_motorcycles extends eqLogic {
 		$this->writeSeparateLine();
 		log::add(__CLASS__, 'debug', 'Start' . __FUNCTION__ . ' equipement Zero Motorcycles');
 
-		$this->checkCredentials();
-		$this->doRequest(self::BASE_URL.'get_units&format=json&user='..'&pass=',null, "GET", null);		
+		$this->checkCredentials();			
+		list($httpcode, $result, $header) = $this->doRequest(self::BASE_URL.'get_units&format=json&user='..'&pass=',null, "GET", null);	
+      	if (isset($httpcode) and $httpcode >= 400 ) {
+          	throw new Exception($this->manageErrorMessage($httpcode,$result));
+        } else {
+			log::add(__CLASS__, 'debug', '    -> '. json_encode($result));
+		}
 
 		log::add(__CLASS__, 'debug', 'End' . __FUNCTION__ . ' equipement Zero Motorcycles');
 		$this->writeSeparateLine();
