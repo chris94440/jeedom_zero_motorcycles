@@ -49,7 +49,7 @@ $eqLogics = eqLogic::byType($plugin->getId());
 			}
 			?>
 		</div>
-		<legend><i class="fas fa-table"></i> {{Mes équipements Somfy}}</legend>
+		<legend><i class="fas fa-table"></i> {{Mes équipements Zero Motorcycles}}</legend>
 		<?php
 		if (count($eqLogics) == 0) {
 			echo '<br><div class="text-center" style="font-size:1.2em;font-weight:bold;">{{Aucun équipement Zero Motorcycles trouvé, cliquez sur synchroniser}}</div>';
