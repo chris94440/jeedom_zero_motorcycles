@@ -26,22 +26,7 @@ if (!class_exists('imaProtectNewAPI')) {
 }
 
 class zero_motorcycles extends eqLogic {
-    /*     * *************************Attributs****************************** */
-	const IMA_ON=2;
-	const IMA_PARTIAL=1;
-	const IMA_OFF=0;
-	const IMA_UNKNOWN=-1;
-	const IMA_IGNORED=-2;
-
-	const SNAPSHOT_PATH='/var/www/html/plugins/zero_motorcycles/data/img/snapshots/';
-	const ICON_PATH='/var/www/html/plugins/zero_motorcycles/data/img/icons/';
-	const ACCESS_ICON_PATH='/plugins/zero_motorcycles/data/img/icons/';
-
 	const BASE_URL='https://mongol.brono.com/mongol/api.php?commandname=';
-	/*
-	https://mongol.brono.com/mongol/api.php?commandname=get_units&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$
-	https://mongol.brono.com/mongol/api.php?commandname=get_last_transmit&format=json&user=cdemonge91800@gmail.com&pass=ZeroSrf2024$&unitnumber=1073108
-	*/
 	  
     /*
      * Fonction exécutée automatiquement toutes les minutes par Jeedom    */
@@ -54,7 +39,7 @@ class zero_motorcycles extends eqLogic {
                     log::add(__CLASS__, 'debug', 'Exécution du cron Zero Motorcycles');
                   	
 		            foreach (eqLogic::byType(__CLASS__, true) as $zero_motorcycles) {                      	
-						log::add(__CLASS__, 'debug', 'ToDo cron execution');
+						self::updateOrCreateCmd($zero_motorcycles);
                    }
                    
 				}
@@ -65,36 +50,139 @@ class zero_motorcycles extends eqLogic {
 	}
 
 	public function synchronize() {
-		$this->writeSeparateLine();
-		log::add(__CLASS__, 'debug', 'Start' . __FUNCTION__ . ' equipement Zero Motorcycles');
-
-		$this->checkCredentials();			
-		list($httpcode, $result, $header) = $this->doRequest(self::BASE_URL.'get_units&format=json&user='..'&pass=',null, "GET", null);	
+		self::writeSeparateLine();
+		log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' equipement Zero Motorcycles');
+      	     
+      	$userZero = self::getUserZero();
+      	$pwdZero = self::getPwdZero();
+      	
+		list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_units&format=json&user='.$userZero.'&pass='.$pwdZero,null, "GET", null);	
       	if (isset($httpcode) and $httpcode >= 400 ) {
-          	throw new Exception($this->manageErrorMessage($httpcode,$result));
+          	log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' manageErrorMessage');
+          	self::manageErrorMessage($httpcode,$result);
         } else {
-			log::add(__CLASS__, 'debug', '    -> '. json_encode($result));
+          	self::createOrUpdateEquipement($result);
 		}
 
-		log::add(__CLASS__, 'debug', 'End' . __FUNCTION__ . ' equipement Zero Motorcycles');
-		$this->writeSeparateLine();
+      	log::add(__CLASS__, 'debug', 'End - ' . __FUNCTION__ . ' equipement Zero Motorcycles');
+      	self::writeSeparateLine();
 	}
-
-	private static function checkCredentials() {
-		if (empty($this->getConfiguration('login_zero_motorcycles'))) {
-			throw new Exception(__('L\'identifiant ne peut pas être vide',__FILE__));
+  
+  	private function createOrUpdateEquipement($responseBody) {
+    	log::add(__CLASS__, 'debug', '	# Start - ' . __FUNCTION__ );
+      	$resultArr=json_decode($responseBody,true);
+      
+      	$unitNumber='';
+      	$unitName='';
+        foreach($resultArr as $vehicule) {
+        	if (array_key_exists('unitnumber', $vehicule)) {
+              	$unitNumber=$vehicule['unitnumber'];
+            }
+          
+          	if (array_key_exists('name', $vehicule)) {
+              	$unitName=$vehicule['name'];
+            }         
+          
+          	$found=false;
+          	$eqLogics=eqLogic::byType(__CLASS__);
+            foreach ($eqLogics as $eqLogic) {
+                if ($eqLogic->getLogicalId() == $unitNumber) {
+                   $found = true;
+                }
+            }
+          
+          	if (!$found) {
+            	log::add(__CLASS__, 'debug', '   - create unitnumber ' . $unitName );
+              	$eqLogic = new eqLogic();
+                $eqLogic->setEqType_name(__CLASS__);
+                $eqLogic->setIsEnable(1);
+                $eqLogic->setIsVisible(1);
+                $eqLogic->setName($unitName);
+                $eqLogic->setConfiguration('rawDevice',json_encode($vehicule));
+                $eqLogic->setLogicalId($unitNumber);
+                $eqLogic->save();
+            }
+          
+          	self::updateOrCreateCmd($eqLogic);
+        }
+      
+      
+      	log::add(__CLASS__, 'debug', '	# End - ' . __FUNCTION__ );
+    }
+  
+  	private function updateOrCreateCmd($eqLogic) {
+    	log::add(__CLASS__, 'debug', '		* Start - ' . __FUNCTION__ );
+      
+      	$userZero = self::getUserZero();
+      	$pwdZero = self::getPwdZero();
+     	
+      	list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_last_transmit&format=json&user='.$userZero.'&pass='.$pwdZero.'&unitnumber='.$eqLogic->getLogicalId(),null, "GET", null);	
+      	if (isset($httpcode) and $httpcode >= 400 ) {
+          	log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' manageErrorMessage');
+          	self::manageErrorMessage($httpcode,$result);
+        } else {
+          	self::manageCmd($eqLogic,$result);
 		}
+      
+      	log::add(__CLASS__, 'debug', '		* End - ' . __FUNCTION__ );
+    }
+  
+  	private function manageCmd($eqLogic,$result) {
+    	log::add(__CLASS__, 'debug', '			- Start - ' . __FUNCTION__ );
+      	$resultArr=json_decode($result,true);
+      	foreach($resultArr as $vehiculeDatas) {
+          	foreach ($vehiculeDatas as $key => $value) {
+                self::commonCreateCmd($eqLogic,$key,$value);
+            }
+        }
+      	
+      	log::add(__CLASS__, 'debug', '			- End - ' . __FUNCTION__ );
+    }
+  
+  	private function commonCreateCmd($eqLogic,$name,$value) {
+      	log::add(__CLASS__, 'debug', '			- ' . __FUNCTION__ . ' name : ' . $name . ' -> ' . $value);
+    	$zero_motorcyclesCmd = $eqLogic->getCmd(null, $name.'_'.$eqLogic->getLogicalId());
+		if (! is_object($zero_motorcyclesCmd)) {
+			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
+			$zero_motorcyclesCmd->setName($name);
+			$zero_motorcyclesCmd->setEqLogic_id($eqLogic->id);
+			$zero_motorcyclesCmd->setLogicalId($name.'_'.$eqLogic->getLogicalId());
+			$zero_motorcyclesCmd->setType('info');
+          	if ($name == 'mileage' || $name == 'longitude' || $name == 'latitude' || $name == 'altitude' || $name == 'soc' || $name == 'charging' || $name == 'chargecomplete' || $name == 'pluggedin') {
+              	$zero_motorcyclesCmd->setSubType('numeric');
+            	$zero_motorcyclesCmd->setIsHistorized(1);
+            } else {
+            	$zero_motorcyclesCmd->setSubType('string');
+            }
+			
+			$zero_motorcyclesCmd->setOrder(sizeof($eqLogic->getCmd()));
+        }
+      	
+		$zero_motorcyclesCmd->save();
+      	$zero_motorcyclesCmd->event($value);
+    }
+  
+  
+  	private function getUserZero() {
+      if (empty(trim(str_replace('"', '\"', config::byKey('login_zero_motorcycles', __CLASS__))))) {
+        log::add(__CLASS__, 'error', 'L\'identifiant ne peut pas être vide');
+      }
+      return trim(str_replace('"', '\"', config::byKey('login_zero_motorcycles', __CLASS__)));
+    }
+  
+  	private function getPwdZero() {
+      if (empty(trim(str_replace('"', '\"', config::byKey('password_zero_motorcycles', __CLASS__))))) {
+        log::add(__CLASS__, 'error', 'Le mot de passe ne peut pas être vide');
+      }
+      return trim(str_replace('"', '\"', config::byKey('password_zero_motorcycles', __CLASS__)));
+    }
 
-		if (empty($this->getConfiguration('password_zero_motorcycles'))) {
-			throw new Exception(__('Le mot de passe ne peut etre vide',__FILE__));
-		}
-	}
-
-	private static function doRequest($url, $data, $method, $headers) {		
+	private function doRequest($url, $data, $method, $headers) {		
 		log::add(__CLASS__, 'debug', "			==> doRequest");
 		log::add(__CLASS__, 'debug', "				==> Params : $url | $data | $method | ".json_encode($headers));
 		log::add(__CLASS__, 'debug', "				==> Params json input : " . json_encode($data));
-	  	$curl = curl_init();
+
+        $curl = curl_init();
 	  	curl_setopt($curl, CURLOPT_URL,				$url);
 		curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
 	  	curl_setopt($curl, CURLOPT_HEADER, 			true);
@@ -115,7 +203,7 @@ class zero_motorcycles extends eqLogic {
 		
 		//Get header info
 		$header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
-			$header = substr($resultCurl, 0, $header_size);
+      	$header = substr($resultCurl, 0, $header_size);
 		
 		//Get body
 		$body = substr($resultCurl, $header_size);
@@ -127,9 +215,9 @@ class zero_motorcycles extends eqLogic {
 		log::add(__CLASS__, 'debug', "					# Code Http : $httpRespCode");
    
 		if (strpos($body, 'rejected')) {
-			throw new Exception($this->manageErrorMessage('500','Request was rejected by server -> '.$url));
+			self::manageErrorMessage('500','Request was rejected by server -> '.$url);
 		} else {
-			if ($this->isJson($body)) {
+			if (self::isJson($body)) {
 				log::add(__CLASS__, 'debug', "					# Body  : ".$body);
 			}
 		}
@@ -137,29 +225,38 @@ class zero_motorcycles extends eqLogic {
 	  
 	  return array($httpRespCode, $body, $header);
   	}
+  
+  	private function isJson($inputJson) {
+	   json_decode($inputJson);
+	   return json_last_error() === JSON_ERROR_NONE;
+	}
 
-	private static function manageErrorMessage($httpCode,$error) {
+	private function manageErrorMessage($httpCode,$error) {
 		log::add(__CLASS__, 'debug', "			" . __FUNCTION__ . " : " . $error . "|" .$httpCode);
 		$errorMessage="Unknown error";
-		if (!$this->IsNullOrEmpty($error)) {
+		if (!self::IsNullOrEmpty($error)) {
+          	log::add(__CLASS__, 'debug', "1");
 			$errorMessage=str_replace("\"","",$error);
-				$errorArray=json_decode($error,true);
-				if (!$this->IsNullOrEmpty($errorArray["error"])) {
-					$errorMsg=json_decode($errorArray,true);
-					if (!$this->IsNullOrEmpty($errorMsg["code"]) and !$this->IsNullOrEmpty($errorMsg["message"]) ) {
-					$errorMsgCode=$errorMsg["code"];
-					$errorMsgMessage=$errorMsg["message"];
-						$errorMessage=$errorMsg["message"] .' - '. $errorMsgCode;
-						log::add(__CLASS__, 'debug', "				==> decode json  : " . $errorMsgCode . "|" . $errorMsgMessage);
-				}
-			}
+            $errorArray=json_decode($error,true);
+            if (!self::IsNullOrEmpty($errorArray["error"])) {
+              log::add(__CLASS__, 'debug', "2");
+              $errorMsg=json_decode($errorArray,true);
+              if (!self::IsNullOrEmpty($errorMsg["code"]) and !self::IsNullOrEmpty($errorMsg["message"]) ) {
+                log::add(__CLASS__, 'debug', "3");
+                $errorMsgCode=$errorMsg["code"];
+                $errorMsgMessage=$errorMsg["message"];
+                $errorMessage=$errorMsg["message"] .' - '. $errorMsgCode;
+                log::add(__CLASS__, 'debug', "				==> decode json  : " . $errorMsgCode . "|" . $errorMsgMessage);
+              } else {
+                log::add(__CLASS__, 'debug', "4");
+                $errorMsgCode=$httpCode;
+                $errorMsgMessage=$errorArray["error"];
+                $errorMessage=$errorMsgMessage .' - '. $errorMsgCode;
+              }
+            }
 		}
-	  
-		if (!$this->IsNullOrEmpty($httpCode)) {
-			$errorMessage .= " (". $httpCode . ")";
-		}
-	  
-		log::add(__CLASS__, 'debug', "			==> errorMessage : " . $errorMessage);
+	    
+      	log::add(__CLASS__, 'error', $errorMessage);
 		return $errorMessage;
   	}
 
@@ -180,6 +277,7 @@ class zero_motorcycles extends eqLogic {
 
 
      /* Fonction exécutée automatiquement toutes les heures par Jeedom */
+  	/*
     public static function cronHourly() {
       log::add(__CLASS__, 'debug', 'Exécution du cron hourly zero_motorcycles - Start');
       foreach (eqLogic::byType(__CLASS__, true) as $zero_motorcycles) {
@@ -189,6 +287,7 @@ class zero_motorcycles extends eqLogic {
       }
       log::add(__CLASS__, 'debug', 'Exécution du cron hourly zero_motorcycles - End');
     }
+    */
 
     /*     * *********************Méthodes d'instance************************* */
 
@@ -204,284 +303,6 @@ class zero_motorcycles extends eqLogic {
     public function postSave() {
     }
   
-  	private function createCmd(){
-      log::add(__CLASS__, 'debug',  "Création des commandes : start");
-
-        $zero_motorcyclesCmd = $this->getCmd(null, 'statusAlarme');
-		if (! is_object($zero_motorcyclesCmd))
-		{
-			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
-			$zero_motorcyclesCmd->setName(__('Statut alarme', __FILE__));
-			//$zero_motorcyclesCmd->setOrder(1);
-			$zero_motorcyclesCmd->setEqLogic_id($this->id);
-			$zero_motorcyclesCmd->setLogicalId('statusAlarme');
-			$zero_motorcyclesCmd->setConfiguration('data', 'statusAlarme');
-			$zero_motorcyclesCmd->setConfiguration('historizeMode', 'none');
-			$zero_motorcyclesCmd->setType('info');
-			$zero_motorcyclesCmd->setSubType('numeric');
-			$zero_motorcyclesCmd->setTemplate('dashboard', 'line');
-			$zero_motorcyclesCmd->setTemplate('mobile', 'line');
-			$zero_motorcyclesCmd->setIsHistorized(1);
-			$zero_motorcyclesCmd->setDisplay('graphStep', '1');
-			$zero_motorcyclesCmd->setConfiguration("MaxValue", self::IMA_ON);
-			$zero_motorcyclesCmd->setConfiguration("MinValue", self::IMA_UNKNOWN);
-			//$zero_motorcyclesCmd->save();
-			$zero_motorcyclesCmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$zero_motorcyclesCmd->getName().' (LogicalId : '.$zero_motorcyclesCmd->getLogicalId().')');
-        }
-		$zero_motorcyclesCmd->save();
-      
-      
-      	$zero_motorcyclesCmd = $this->getCmd(null, 'alarmMode');
-		if (! is_object($zero_motorcyclesCmd))		{
-			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
-			$zero_motorcyclesCmd->setName(__('Mode alarme', __FILE__));
-			//$zero_motorcyclesCmd->setOrder(11);
-			$zero_motorcyclesCmd->setEqLogic_id($this->id);
-			$zero_motorcyclesCmd->setLogicalId('alarmMode');
-			$zero_motorcyclesCmd->setConfiguration('data', 'alarmMode');
-			$zero_motorcyclesCmd->setConfiguration('historizeMode', 'none');
-			$zero_motorcyclesCmd->setType('info');
-			$zero_motorcyclesCmd->setSubType('string');
-			$zero_motorcyclesCmd->setTemplate('dashboard', 'line');
-			$zero_motorcyclesCmd->setTemplate('mobile', 'line');
-			$zero_motorcyclesCmd->setIsHistorized(1);
-			$zero_motorcyclesCmd->setDisplay('graphStep', '1');
-			$zero_motorcyclesCmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$zero_motorcyclesCmd->getName().' (LogicalId : '.$zero_motorcyclesCmd->getLogicalId().')');
-        }
-		$zero_motorcyclesCmd->save();
-      
-      	$zero_motorcyclesCmd = $this->getCmd(null, 'alarmState');
-		if (! is_object($zero_motorcyclesCmd))		{
-			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
-			$zero_motorcyclesCmd->setName(__('Etat alarme', __FILE__));
-			//$zero_motorcyclesCmd->setOrder(12);
-			$zero_motorcyclesCmd->setEqLogic_id($this->id);
-			$zero_motorcyclesCmd->setLogicalId('alarmState');
-			$zero_motorcyclesCmd->setConfiguration('data', 'alarmState');
-			$zero_motorcyclesCmd->setConfiguration('historizeMode', 'none');
-			$zero_motorcyclesCmd->setType('info');
-			$zero_motorcyclesCmd->setSubType('binary');
-			$zero_motorcyclesCmd->setTemplate('dashboard', 'line');
-			$zero_motorcyclesCmd->setTemplate('mobile', 'line');
-			$zero_motorcyclesCmd->setIsHistorized(1);
-			$zero_motorcyclesCmd->setDisplay('graphStep', '1');
-          	$zero_motorcyclesCmd->setConfiguration("MaxValue", 1);
-			$zero_motorcyclesCmd->setConfiguration("MinValue", 0);
-			$zero_motorcyclesCmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$zero_motorcyclesCmd->getName().' (LogicalId : '.$zero_motorcyclesCmd->getLogicalId().')');
-        }
-		$zero_motorcyclesCmd->save();
-      
-        $zero_motorcyclesCmd = $this->getCmd(null, 'binaryAlarmStatus');
-		if (! is_object($zero_motorcyclesCmd))		{
-			$zero_motorcyclesCmd = new zero_motorcyclesCmd();
-			$zero_motorcyclesCmd->setName(__('Statut binaire alarme', __FILE__));
-			//$zero_motorcyclesCmd->setOrder(13);
-			$zero_motorcyclesCmd->setEqLogic_id($this->id);
-			$zero_motorcyclesCmd->setLogicalId('binaryAlarmStatus');
-			$zero_motorcyclesCmd->setConfiguration('data', 'binaryAlarmStatus');
-			$zero_motorcyclesCmd->setConfiguration('historizeMode', 'none');
-			$zero_motorcyclesCmd->setType('info');
-			$zero_motorcyclesCmd->setSubType('binary');
-			$zero_motorcyclesCmd->setTemplate('dashboard', 'line');
-			$zero_motorcyclesCmd->setTemplate('mobile', 'line');
-			$zero_motorcyclesCmd->setIsHistorized(1);
-			$zero_motorcyclesCmd->setDisplay('graphStep', '1');
-			$zero_motorcyclesCmd->setConfiguration("MaxValue", 1);
-			$zero_motorcyclesCmd->setConfiguration("MinValue", 0);
-			$zero_motorcyclesCmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$zero_motorcyclesCmd->getName().' (LogicalId : '.$zero_motorcyclesCmd->getLogicalId().')');
-        }
-		$zero_motorcyclesCmd->save();      
-      
-      	$cmd = $this->getCmd(null, 'alarmeEvents');
-		if (! is_object($cmd))		{
-          	$cmd = new zero_motorcyclesCmd();
-            $cmd->setName('Evenements');
-			//$cmd->setOrder(2);
-            $cmd->setEqLogic_id($this->getId());
-            $cmd->setLogicalId('alarmeEvents');
-            $cmd->setUnite('');
-            $cmd->setType('info');
-            $cmd->setSubType('string');
-            $cmd->setIsVisible(1);
-            $cmd->setIsHistorized(0);
-          	$cmd->setConfiguration('cmdsMaked', true);
-          	$cmd->setTemplate('dashboard', 'default');
-			$cmd->setTemplate('mobile','default');
-			$cmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$cmd->getName().' (LogicalId : '.$cmd->getLogicalId().')');
-        }
-		$cmd->save();
-
-      	$cmd = $this->getCmd(null, 'alarmeEventsBrute');
-		if (! is_object($cmd))		{
-          	$cmd = new zero_motorcyclesCmd();
-            $cmd->setName('Evenements données brutes');
-			//$cmd->setOrder(4);
-            $cmd->setEqLogic_id($this->getId());
-            $cmd->setLogicalId('alarmeEventsBrute');
-            $cmd->setUnite('');
-            $cmd->setType('info');
-            $cmd->setSubType('string');
-            $cmd->setIsVisible(1);
-            $cmd->setIsHistorized(0);
-          	$cmd->setConfiguration('cmdsMaked', true);
-          	$cmd->setTemplate('dashboard', 'default');
-			$cmd->setTemplate('mobile','default');
-			$cmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$cmd->getName().' (LogicalId : '.$cmd->getLogicalId().')');
-        }
-		$cmd->save();
-		
-      	$cmdCameraSnapshot = $this->getCmd(null, 'cameraSnapshot');
-		if (! is_object($cmdCameraSnapshot))		{
-          	$cmdCameraSnapshot = new zero_motorcyclesCmd();
-            $cmdCameraSnapshot->setName('Images caméras');
-			//$cmdCameraSnapshot->setOrder(3);
-            $cmdCameraSnapshot->setEqLogic_id($this->getId());
-            $cmdCameraSnapshot->setLogicalId('cameraSnapshot');
-            $cmdCameraSnapshot->setUnite('');
-            $cmdCameraSnapshot->setType('info');
-            $cmdCameraSnapshot->setSubType('string');
-            $cmdCameraSnapshot->setIsVisible(1);
-            $cmdCameraSnapshot->setIsHistorized(0);
-          	$cmdCameraSnapshot->setTemplate('dashboard', 'default');
-			$cmdCameraSnapshot->setTemplate('mobile','default');
-			$cmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdCameraSnapshot->getName().' (LogicalId : '.$cmdCameraSnapshot->getLogicalId().')');
-        }
-		$cmdCameraSnapshot->save();
-      
-      	$cmdCameraSnapshotBrute = $this->getCmd(null, 'cameraSnapshotBrute');
-		if (! is_object($cmdCameraSnapshotBrute))		{
-          	$cmdCameraSnapshotBrute = new zero_motorcyclesCmd();
-            $cmdCameraSnapshotBrute->setName('Images caméras données brutes');
-			//$cmdCameraSnapshotBrute->setOrder(5);
-            $cmdCameraSnapshotBrute->setEqLogic_id($this->getId());
-            $cmdCameraSnapshotBrute->setLogicalId('cameraSnapshotBrute');
-            $cmdCameraSnapshotBrute->setUnite('');
-            $cmdCameraSnapshotBrute->setType('info');
-            $cmdCameraSnapshotBrute->setSubType('string');
-            $cmdCameraSnapshotBrute->setIsVisible(1);
-            $cmdCameraSnapshotBrute->setIsHistorized(0);
-          	$cmdCameraSnapshotBrute->setTemplate('dashboard', 'default');
-			$cmdCameraSnapshotBrute->setTemplate('mobile','default');
-			$cmdCameraSnapshotBrute->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdCameraSnapshotBrute->getName().' (LogicalId : '.$cmdCameraSnapshotBrute->getLogicalId().')');
-        }
-		$cmdCameraSnapshotBrute->save();
-      
-      	$cmdRefreshAlarmStatus = $this->getCmd(null, 'refreshAlarmeStatus');
-		if (!is_object($cmdRefreshAlarmStatus)) {
-			$cmdRefreshAlarmStatus = new zero_motorcyclesCmd();
-			//$cmdRefreshAlarmStatus->setOrder(6);
-			$cmdRefreshAlarmStatus->setName('Rafraichir statut alarme');
-			$cmdRefreshAlarmStatus->setEqLogic_id($this->getId());
-			$cmdRefreshAlarmStatus->setLogicalId('refreshAlarmeStatus');
-			$cmdRefreshAlarmStatus->setType('action');
-			$cmdRefreshAlarmStatus->setSubType('other');
-          	$cmdRefreshAlarmStatus->setTemplate('dashboard', 'default');
-			$cmdRefreshAlarmStatus->setTemplate('mobile','default');
-          	$cmdRefreshAlarmStatus->dontRemoveCmd();
-			$cmdRefreshAlarmStatus->setOrder($this->getLastindexCmd());
-			log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdRefreshAlarmStatus->getName().' (LogicalId : '.$cmdRefreshAlarmStatus->getLogicalId().')');
-		}
-		$cmdRefreshAlarmStatus->save();
-      
-      	$cmdRefreshCameraSnapshot = $this->getCmd(null, 'refreshCameraSnapshot');
-		if (!is_object($cmdRefreshCameraSnapshot)) {
-			$cmdRefreshCameraSnapshot = new zero_motorcyclesCmd();
-			//$cmdRefreshCameraSnapshot->setOrder(8);
-			$cmdRefreshCameraSnapshot->setName('Rafraichir capture caméras');
-			$cmdRefreshCameraSnapshot->setEqLogic_id($this->getId());
-			$cmdRefreshCameraSnapshot->setLogicalId('refreshCameraSnapshot');
-			$cmdRefreshCameraSnapshot->setType('action');
-			$cmdRefreshCameraSnapshot->setSubType('other');
-          	$cmdRefreshCameraSnapshot->setTemplate('dashboard', 'default');
-			$cmdRefreshCameraSnapshot->setTemplate('mobile','default');
-			$cmdRefreshCameraSnapshot->setOrder($this->getLastindexCmd());
-			log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdRefreshCameraSnapshot->getName().' (LogicalId : '.$cmdRefreshCameraSnapshot->getLogicalId().')');
-		}
-		$cmdRefreshCameraSnapshot->save();
-      
-
-      	$cmdRefreshEventsAlarm = $this->getCmd(null, 'refreshAlarmEvents');
-		if (!is_object($cmdRefreshEventsAlarm)) {
-			$cmdRefreshEventsAlarm = new zero_motorcyclesCmd();
-			//$cmdRefreshEventsAlarm->setOrder(7);
-			$cmdRefreshEventsAlarm->setName('Rafraichir évènements alarme');
-			$cmdRefreshEventsAlarm->setEqLogic_id($this->getId());
-			$cmdRefreshEventsAlarm->setLogicalId('refreshAlarmEvents');
-			$cmdRefreshEventsAlarm->setType('action');
-			$cmdRefreshEventsAlarm->setSubType('other');
-          	$cmdRefreshEventsAlarm->setTemplate('dashboard', 'default');
-			$cmdRefreshEventsAlarm->setTemplate('mobile','default');
-			$cmdRefreshEventsAlarm->setOrder($this->getLastindexCmd());
-			log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdRefreshEventsAlarm->getName().' (LogicalId : '.$cmdRefreshEventsAlarm->getLogicalId().')');
-		}
-		$cmdRefreshEventsAlarm->save();
-	  
-      	$cmdActionModeAlarme = $this->getCmd(null, 'setModeAlarme');
-        if ( ! is_object($cmdActionModeAlarme)) {
-          $cmdActionModeAlarme = new zero_motorcyclesCmd();
-          //$cmdActionModeAlarme->setOrder(9);
-          $cmdActionModeAlarme->setName('Action mode alarme');
-          $cmdActionModeAlarme->setEqLogic_id($this->getId());
-          $cmdActionModeAlarme->setLogicalId('setModeAlarme');
-          $cmdActionModeAlarme->setType('action');
-          $cmdActionModeAlarme->setSubType('message');
-		  $cmdActionModeAlarme->setOrder($this->getLastindexCmd());
-          log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdActionModeAlarme->getName().' (LogicalId : '.$cmdActionModeAlarme->getLogicalId().')');
-        }
-  
-		$cmdActionModeAlarme->setConfiguration('title', '');
-		$cmdActionModeAlarme->setConfiguration('listValue', '');
-		$cmdActionModeAlarme->setDisplay('title_placeholder','Mode alarme');
-		$cmdActionModeAlarme->setDisplay('title_disable', 0);
-		$cmdActionModeAlarme->setDisplay('title_possibility_list', 'on,off,partial');
-		$cmdActionModeAlarme->save();
-      
-      	$cmdActionScreenshot = $this->getCmd(null, 'actionScreenshot');
-		if (!is_object($cmdActionScreenshot)) {
-			$cmdActionScreenshot = new zero_motorcyclesCmd();
-			//$cmdActionScreenshot->setOrder(10);
-			$cmdActionScreenshot->setName('Actions sur une image caméra');
-			$cmdActionScreenshot->setEqLogic_id($this->getId());
-			$cmdActionScreenshot->setLogicalId('actionScreenshot');
-			$cmdActionScreenshot->setType('action');
-			$cmdActionScreenshot->setSubType('message');
-          	$cmdActionScreenshot->setTemplate('dashboard', 'default');
-			$cmdActionScreenshot->setTemplate('mobile','default');
-			$cmdActionScreenshot->setOrder($this->getLastindexCmd());
-			log::add(__CLASS__, 'debug', 'Création de la commande '.$cmdActionScreenshot->getName().' (LogicalId : '.$cmdActionScreenshot->getLogicalId().')');
-		}
-      	$cmdActionScreenshot->setDisplay('title_placeholder','Action sur caméra');
-		$cmdActionScreenshot->save();
-
-		$cmd = $this->getCmd(null, 'cameraSnapshotImage');
-		if (! is_object($cmd))		{
-          	$cmd = new zero_motorcyclesCmd();
-            $cmd->setName('Dernière image snapshot');
-            $cmd->setEqLogic_id($this->getId());
-            $cmd->setLogicalId('cameraSnapshotImage');
-            $cmd->setUnite('');
-            $cmd->setType('info');
-            $cmd->setSubType('string');
-            $cmd->setIsVisible(1);
-            $cmd->setIsHistorized(0);
-          	$cmd->setTemplate('dashboard', 'default');
-			$cmd->setTemplate('mobile','default');
-			$cmd->setOrder($this->getLastindexCmd());
-          	log::add(__CLASS__, 'debug', 'Création de la commande '.$cmd->getName().' (LogicalId : '.$cmd->getLogicalId().')');
-        }
-		$cmd->save();
-
-		log::add(__CLASS__, 'debug',  "Création des commandes - End");
-    }
-
     public function preUpdate() {
 		log::add(__CLASS__, 'debug',  "appel preUpdate");
    		$this->checkCredentials();            
@@ -513,18 +334,18 @@ class zero_motorcycles extends eqLogic {
 	}
   }
 
-  private function IsNullOrEmpty($input){
-    return (!isset($input) || trim($input)==='');
-  }
-  
-  public function manageErrorAPI($function,$errorMessage) {
-    	$message="$function => ".$errorMessage;
-    	throw new Exception($message);
-  }
-  
-  public function writeSeparateLine(){
-		log::add(__CLASS__, 'debug',  "*********************************************************************");
-  }
+    private function IsNullOrEmpty($input){
+      return (!isset($input) || trim($input)==='');
+    }
+
+    private function manageErrorAPI($function,$errorMessage) {
+          $message="$function => ".$errorMessage;
+          throw new Exception($message);
+    }
+
+    private function writeSeparateLine(){
+          log::add(__CLASS__, 'debug',  "*********************************************************************");
+    }
 
  
 	public function toHtml($_version = 'dashboard') {
