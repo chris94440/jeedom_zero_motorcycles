@@ -27,7 +27,7 @@ if (!isConnect()) {
         <div class="form-group">
 		  	<legend><i class="fas fa-list-alt"></i> {{Configuration connexion compte Zero Motorcycles}}</legend>
 			<div class="form-group">
-			  <label class="col-md-4 control-label">{{Nom utilisateur compte Somfy}}
+			  <label class="col-md-4 control-label">{{Nom utilisateur Zero Motorcycles}}
 				<sup><i class="fas fa-question-circle tooltips" title="{{Nom utilisateur Zero Motorcycles}}"></i></sup>
 			  </label>
 			  <div class="col-md-4">
