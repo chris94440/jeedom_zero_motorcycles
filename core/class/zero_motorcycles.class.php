@@ -35,7 +35,7 @@ class zero_motorcycles extends eqLogic {
                     log::add(__CLASS__, 'debug', 'Exécution du cron Zero Motorcycles');
                   	
 		            foreach (eqLogic::byType(__CLASS__, true) as $zero_motorcycles) {                      	
-						$this->updateOrCreateCmd($zero_motorcycles);
+						self::updateOrCreateCmd($zero_motorcycles);
                    }
                    
 				}
@@ -46,25 +46,25 @@ class zero_motorcycles extends eqLogic {
 	}
 
 	public function synchronize() {
-		$this->writeSeparateLine();
+		self::writeSeparateLine();
 		log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' equipement Zero Motorcycles');
       	     
-      	$userZero = $this->getUserZero();
-      	$pwdZero = $this->getPwdZero();
+      	$userZero = self::getUserZero();
+      	$pwdZero = self::getPwdZero();
       	
-		list($httpcode, $result, $header) = $this->doRequest(self::BASE_URL.'get_units&format=json&user='.$userZero.'&pass='.$pwdZero,null, "GET", null);	
+		list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_units&format=json&user='.$userZero.'&pass='.$pwdZero,null, "GET", null);	
       	if (isset($httpcode) and $httpcode >= 400 ) {
           	log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' manageErrorMessage');
-          	$this->manageErrorMessage($httpcode,$result);
+          	self::manageErrorMessage($httpcode,$result);
         } else {
-          	$this->createOrUpdateEquipement($result);
+          	self::createOrUpdateEquipement($result);
 		}
 
       	log::add(__CLASS__, 'debug', 'End - ' . __FUNCTION__ . ' equipement Zero Motorcycles');
-      	$this->writeSeparateLine();
+      	self::writeSeparateLine();
 	}
   
-  	private function createOrUpdateEquipement($responseBody) {
+  	private static function createOrUpdateEquipement($responseBody) {
     	log::add(__CLASS__, 'debug', '	# Start - ' . __FUNCTION__ );
       	$resultArr=json_decode($responseBody,true);
       
@@ -99,43 +99,43 @@ class zero_motorcycles extends eqLogic {
                 $eqLogic->save();
             }
           
-          	$this->updateOrCreateCmd($eqLogic);
+          	self::updateOrCreateCmd($eqLogic);
         }
       
       
       	log::add(__CLASS__, 'debug', '	# End - ' . __FUNCTION__ );
     }
   
-  	private function updateOrCreateCmd($eqLogic) {
+  	private static function updateOrCreateCmd($eqLogic) {
     	log::add(__CLASS__, 'debug', '		* Start - ' . __FUNCTION__ );
       
-      	$userZero = $this->getUserZero();
-      	$pwdZero = $this->getPwdZero();
+      	$userZero = self::getUserZero();
+      	$pwdZero = self::getPwdZero();
      	
-      	list($httpcode, $result, $header) = $this->doRequest(self::BASE_URL.'get_last_transmit&format=json&user='.$userZero.'&pass='.$pwdZero.'&unitnumber='.$eqLogic->getLogicalId(),null, "GET", null);	
+      	list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_last_transmit&format=json&user='.$userZero.'&pass='.$pwdZero.'&unitnumber='.$eqLogic->getLogicalId(),null, "GET", null);	
       	if (isset($httpcode) and $httpcode >= 400 ) {
           	log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' manageErrorMessage');
-          	$this->manageErrorMessage($httpcode,$result);
+          	self::manageErrorMessage($httpcode,$result);
         } else {
-          	$this->manageCmd($eqLogic,$result);
+          	self::manageCmd($eqLogic,$result);
 		}
       
       	log::add(__CLASS__, 'debug', '		* End - ' . __FUNCTION__ );
     }
   
-  	private function manageCmd($eqLogic,$result) {
+  	private static function manageCmd($eqLogic,$result) {
     	log::add(__CLASS__, 'debug', '			- Start - ' . __FUNCTION__ );
       	$resultArr=json_decode($result,true);
       	foreach($resultArr as $vehiculeDatas) {
           	foreach ($vehiculeDatas as $key => $value) {
-                $this->commonCreateCmd($eqLogic,$key,$value);
+                self::commonCreateCmd($eqLogic,$key,$value);
             }
         }
       	
       	log::add(__CLASS__, 'debug', '			- End - ' . __FUNCTION__ );
     }
   
-  	private function commonCreateCmd($eqLogic,$name,$value) {
+  	private static function commonCreateCmd($eqLogic,$name,$value) {
       	log::add(__CLASS__, 'debug', '				- ' . __FUNCTION__ . ' name : ' . $name . ' -> ' . $value);
     	$zero_motorcyclesCmd = $eqLogic->getCmd(null, $name.'_'.$eqLogic->getLogicalId());
 		if (! is_object($zero_motorcyclesCmd)) {
@@ -159,21 +159,21 @@ class zero_motorcycles extends eqLogic {
     }
   
   
-  	private function getUserZero() {
+  	private static function getUserZero() {
       if (empty(trim(str_replace('"', '\"', config::byKey('login_zero_motorcycles', __CLASS__))))) {
         log::add(__CLASS__, 'error', 'L\'identifiant ne peut pas être vide');
       }
       return trim(str_replace('"', '\"', config::byKey('login_zero_motorcycles', __CLASS__)));
     }
   
-  	private function getPwdZero() {
+  	private static function getPwdZero() {
       if (empty(trim(str_replace('"', '\"', config::byKey('password_zero_motorcycles', __CLASS__))))) {
         log::add(__CLASS__, 'error', 'Le mot de passe ne peut pas être vide');
       }
       return trim(str_replace('"', '\"', config::byKey('password_zero_motorcycles', __CLASS__)));
     }
 
-	private function doRequest($url, $data, $method, $headers) {		
+	private static function doRequest($url, $data, $method, $headers) {		
 		log::add(__CLASS__, 'debug', "			==> doRequest");
 		log::add(__CLASS__, 'debug', "				==> Params : $url | $data | $method | ".json_encode($headers));
 		log::add(__CLASS__, 'debug', "				==> Params json input : " . json_encode($data));
@@ -211,9 +211,9 @@ class zero_motorcycles extends eqLogic {
 		log::add(__CLASS__, 'debug', "					# Code Http : $httpRespCode");
    
 		if (strpos($body, 'rejected')) {
-			$this->manageErrorMessage('500','Request was rejected by server -> '.$url);
+			self::manageErrorMessage('500','Request was rejected by server -> '.$url);
 		} else {
-			if ($this->isJson($body)) {
+			if (self::isJson($body)) {
 				log::add(__CLASS__, 'debug', "					# Body  : ".$body);
 			}
 		}
@@ -222,22 +222,22 @@ class zero_motorcycles extends eqLogic {
 	  return array($httpRespCode, $body, $header);
   	}
   
-  	private function isJson($inputJson) {
+  	private static function isJson($inputJson) {
 	   json_decode($inputJson);
 	   return json_last_error() === JSON_ERROR_NONE;
 	}
 
-	private function manageErrorMessage($httpCode,$error) {
+	private static function manageErrorMessage($httpCode,$error) {
 		log::add(__CLASS__, 'debug', "			" . __FUNCTION__ . " : " . $error . "|" .$httpCode);
 		$errorMessage="Unknown error";
-		if (!$this->IsNullOrEmpty($error)) {
+		if (!self::IsNullOrEmpty($error)) {
           	log::add(__CLASS__, 'debug', "1");
 			$errorMessage=str_replace("\"","",$error);
             $errorArray=json_decode($error,true);
-            if (!$this->IsNullOrEmpty($errorArray["error"])) {
+            if (!self::IsNullOrEmpty($errorArray["error"])) {
               log::add(__CLASS__, 'debug', "2");
               $errorMsg=json_decode($errorArray,true);
-              if (!$this->IsNullOrEmpty($errorMsg["code"]) and !$this->IsNullOrEmpty($errorMsg["message"]) ) {
+              if (!self::IsNullOrEmpty($errorMsg["code"]) and !self::IsNullOrEmpty($errorMsg["message"]) ) {
                 log::add(__CLASS__, 'debug', "3");
                 $errorMsgCode=$errorMsg["code"];
                 $errorMsgMessage=$errorMsg["message"];
@@ -256,7 +256,7 @@ class zero_motorcycles extends eqLogic {
 		return $errorMessage;
   	}
 	
-	private function fmt_date($timeStamp) {
+	private static function fmt_date($timeStamp) {
 		setlocale(LC_TIME, 'fr_FR.utf8','fra');
 		return(ucwords(strftime("%a %d %b %T",$timeStamp)));
 	}
@@ -305,7 +305,7 @@ class zero_motorcycles extends eqLogic {
 
 
     /*     * **********************Getteur Setteur*************************** */
-  private function mefDateTime($dateTime) {
+  private static function mefDateTime($dateTime) {
 	try{
 		$date=new DateTime($dateTime);
 		return $date->format('Y-m-d H:i:s');
@@ -317,16 +317,16 @@ class zero_motorcycles extends eqLogic {
 	}
   }
 
-    private function IsNullOrEmpty($input){
+    private static function IsNullOrEmpty($input){
       return (!isset($input) || trim($input)==='');
     }
 
-    private function manageErrorAPI($function,$errorMessage) {
+    private static function manageErrorAPI($function,$errorMessage) {
           $message="$function => ".$errorMessage;
           throw new Exception($message);
     }
 
-    private function writeSeparateLine(){
+    private static function writeSeparateLine(){
           log::add(__CLASS__, 'debug',  "*********************************************************************");
     }
 
@@ -340,8 +340,8 @@ class zero_motorcycles extends eqLogic {
 
 class zero_motorcyclesCmd extends cmd {
   	public function execute($_options = array()) {
-      	$eqlogic = $this->getEqLogic();
-      	$logicalId=$this->getLogicalId();
+      	$eqlogic = self::getEqLogic();
+      	$logicalId=self::getLogicalId();
       	log::add(__CLASS__, 'debug',  "  * Execution cmd zero_motorcycles | cmd : $logicalId => title : ".$_options['title'] . " | message : " .$_options['message']);     
 
 	}
