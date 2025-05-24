@@ -111,8 +111,10 @@ class zero_motorcycles extends eqLogic {
       
       	$userZero = self::getUserZero();
       	$pwdZero = self::getPwdZero();
+      
+      	$zeroEndpointEncoded=urlencode(self::BASE_URL.'get_last_transmit&format=json&user='.$userZero.'&pass='.$pwdZero.'&unitnumber='.$eqLogic->getLogicalId());
      	
-      	list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_last_transmit&format=json&user='.$userZero.'&pass='.$pwdZero.'&unitnumber='.$eqLogic->getLogicalId(),null, "GET", null);	
+      	list($httpcode, $result, $header) = self::doRequest(self::BASE_URL.'get_last_transmit&format=json&user='.urlencode($userZero).'&pass='.urlencode($pwdZero).'&unitnumber='.urlencode($eqLogic->getLogicalId()),null, "GET", null);	
       	if (isset($httpcode) and $httpcode >= 400 ) {
           	log::add(__CLASS__, 'debug', 'Start - ' . __FUNCTION__ . ' manageErrorMessage');
           	self::manageErrorMessage($httpcode,$result);
@@ -231,20 +233,16 @@ class zero_motorcycles extends eqLogic {
 		log::add(__CLASS__, 'debug', "			" . __FUNCTION__ . " : " . $error . "|" .$httpCode);
 		$errorMessage="Unknown error";
 		if (!self::IsNullOrEmpty($error)) {
-          	log::add(__CLASS__, 'debug', "1");
 			$errorMessage=str_replace("\"","",$error);
             $errorArray=json_decode($error,true);
             if (!self::IsNullOrEmpty($errorArray["error"])) {
-              log::add(__CLASS__, 'debug', "2");
               $errorMsg=json_decode($errorArray,true);
               if (!self::IsNullOrEmpty($errorMsg["code"]) and !self::IsNullOrEmpty($errorMsg["message"]) ) {
-                log::add(__CLASS__, 'debug', "3");
                 $errorMsgCode=$errorMsg["code"];
                 $errorMsgMessage=$errorMsg["message"];
                 $errorMessage=$errorMsg["message"] .' - '. $errorMsgCode;
                 log::add(__CLASS__, 'debug', "				==> decode json  : " . $errorMsgCode . "|" . $errorMsgMessage);
               } else {
-                log::add(__CLASS__, 'debug', "4");
                 $errorMsgCode=$httpCode;
                 $errorMsgMessage=$errorArray["error"];
                 $errorMessage=$errorMsgMessage .' - '. $errorMsgCode;
